@@ -1,0 +1,25 @@
+{
+    "Testing process GETORFS on *E. coli* LexA...": {
+        "content": [
+            {
+                "0": [
+                    "lexA_Ecoli.orfs.fasta:md5,ff5cc0755615e47a7986a02dde8f1400"
+                ],
+                "1": [
+                    "versions.yml:md5,69e2bbb0aeaec7c42a1ab0b87b7920f6"
+                ],
+                "orfs": [
+                    "lexA_Ecoli.orfs.fasta:md5,ff5cc0755615e47a7986a02dde8f1400"
+                ],
+                "versions": [
+                    "versions.yml:md5,69e2bbb0aeaec7c42a1ab0b87b7920f6"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.1",
+            "nextflow": "24.10.0"
+        },
+        "timestamp": "2024-10-28T12:10:01.145835"
+    }
+}
