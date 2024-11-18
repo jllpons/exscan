@@ -6,37 +6,44 @@ E X S C A N   P I P E L I N E
 Exploration and annotation of exons and their features using profile HMMs.
 
 Usage:
-    nextflow run exscan.nf --fasta <fasta> --hmm_db <hmm_db>
+    nextflow run exscan.nf --fasta <fasta> --hmmdb <hmm_db>
 
 Required arguments:
     --fasta <fasta>     : Input fasta file
-    --hmmdb <hmmdb>     : Profile HMM database directory, where the hmmpress
-                          index files are located.
-                          **The file that was passed to hmmpress must be
-                          also located in the same directory as the index files
-                          and must be named 'hmmdb'**
+    --hmmdb <hmmdb>     : Profile HMM database file.
+                          Index files from hmmpress must also be located
+                          in the same directory
 
 Optional arguments:
+    --group <group>     : Group query results within n bps
     --outdir <outdir>   : Output directory [default: results]
     --help              : Print help message and exit
     --version           : Print version and exit
 """
 
-version = "0.0.0"
-
 params.fasta = null
 params.hmmdb = null
+params.group = null
 params.outdir = 'results'
 
 params.help = false
 params.version = false
 
+
 init_summary = """
-E X S C A N   P I P E L I N E
-=============================
+E X S C A N   P I P E L I N E   v${params.manifest.version}
+======================================
 fasta            : ${params.fasta}
 profile database : ${params.hmmdb}
+group            : ${params.group}
 outdir           : ${params.outdir}
+
+--
+
+run as           : ${workflow.commandLine}
+started at       : ${workflow.start}
+config files     : ${workflow.configFiles}
+container images : ${workflow.containerEngine}:${workflow.container}
 """
 
 /*
@@ -54,7 +61,7 @@ include { EXSCAN } from './workflows/exscan'
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// DESC: Validate input arguments and initialize pipeline
+// DESC: Validate input arguments and initialize pipeline, printing a small summary
 // ARGS: None, uses variables defined at the beginning of the script
 // OUTS: `$init_summary` as log message at `INFO` level
 //       `$help_message` as stdout if `--help` flag is set
@@ -69,7 +76,7 @@ def validateParams() {
         System.exit(0)
     }
     if (params.version) {
-        println "exscan.nf ${version}"
+        println "${params.manifest.name} v${params.manifest.version}"
         System.exit(0)
     }
 
@@ -98,12 +105,16 @@ def validateParams() {
     log.info init_summary
 }
 
+// DESC: Display completion message based on workflow status
+// ARGS: None, uses variables defined at the beginning of the script
+// OUTS: Completion message at `INFO` or `ERROR` level
+// RETS: None
 def completionTasks() {
 
     if (workflow.success) {
         if (workflow.stats.ignoredCount == 0) {
             log.info """
-Pipeline completed successfully
+Pipeline completed successfully!
             """
         }
         else {
@@ -128,7 +139,6 @@ Pipeline completed with errors
 */
 
 
-
 workflow {
 
     main:
@@ -137,8 +147,19 @@ workflow {
 
     // Channel for input fasta file
     ch_fasta = Channel.fromPath(params.fasta)
-    // Channel for profile HMM database directory
-    ch_hmmdb = Channel.fromPath(params.hmmdb)
+
+    // We need the directory where the HMM database is located, so that
+    // hmmscan from the container can access the index files
+    //
+    // But we also need the file itself as it's the required input for hmmscan
+    hmmdb_file = params.hmmdb.split('/').last()
+    // Channel for HMM database directory
+    hmmdb_dir = file(params.hmmdb).getParent()
+    ch_hmmdb_dir = Channel.fromPath(hmmdb_dir)
+
+    // Channel for enabling the option of grouping query results within n bps.
+    ch_group = Channel.value(params.group)
+
     // Channel where each tool will dump its version information
     ch_versions = Channel.empty()
 
@@ -146,7 +167,9 @@ workflow {
     // WORKFLOW: After validation, main workflow is launched here
     EXSCAN(
         ch_fasta,
-        ch_hmmdb,
+        hmmdb_file,
+        ch_hmmdb_dir,
+        ch_group,
         ch_versions
     )
     ch_versions = ch_versions.mix(EXSCAN.out.versions)

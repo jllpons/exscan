@@ -6,10 +6,9 @@
 and their specific features. It takes a nucleotide `fasta` file to extract all
 of the open reading frames (ORFs), uses profile hidden Markov models (hmm) to detect exons displaying specific domains and finally filters the results based on specific criteria.
 
-1. Find and extract ORFs ([`getorf`](<https://www.bioinformatics.nl/cgi-bin/emboss/getorf>)).
-    i. Fasta headers post-processing ([`awk`](<https://www.gnu.org/software/gawk/>)).
-2. Query ORFs against a profile HMM database ([`hmmscan`](<http://hmmer.org/>))
-3. Filter results based on specific criteria. ([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>)), [`jq`](<https://jqlang.github.io/jq/>)).
+1. Translate all ORFs of a nucleotide sequence ([`seqkit2`](< https://doi.org/10.1002/imt2.191>)).
+2. Query each ORFs against a profile HMM database ([`hmmscan`](<http://hmmer.org/>))
+3. Perform different operations on each query results. (([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>)), [`jq`](<https://jqlang.github.io/jq/>)).
 
 ## Usage
 
@@ -38,5 +37,4 @@ We thank the following people for their extensive assistance in the development 
 
 #TODO
 EU funding?
-
 

@@ -6,3 +6,4 @@ nf-test
 results/
 work/
 data/
+__pycache__/
