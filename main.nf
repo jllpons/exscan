@@ -44,6 +44,8 @@ run as           : ${workflow.commandLine}
 started at       : ${workflow.start}
 config files     : ${workflow.configFiles}
 container images : ${workflow.containerEngine}:${workflow.container}
+
+--
 """
 
 /*

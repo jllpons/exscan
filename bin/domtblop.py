@@ -14,6 +14,7 @@ Usage: domtblop.py <operation> [options]
         gffcmp     Compare domain hits or groups to a GFF file.
         bamcmp     Compare domain hits or groups to a BAM file.
         togff      Convert serialized domain hits or groups to GFF format.
+        tobed      Convert serialized domain hits or groups to BED format.
         tocsv      Convert serialized domain hits or groups to CSV format.
 
     Utilities:
@@ -36,8 +37,9 @@ def main():
         print(__doc__)
         sys.exit(1)
 
+
     cmd = sys.argv[1]
-    cwd = __file__.rsplit("/", 1)[0]
+
 
     if cmd == "-h" or cmd == "--help" or cmd == "help":
         print(__doc__)
@@ -55,14 +57,12 @@ def main():
         from domtblop_group import run
         run(sys.argv[2:])
 
-    elif cmd == "gffcmp":
-        subcmd = [f"{cwd}/domtblop_gffcmp.py"] + sys.argv[2:]
-
-    elif cmd == "bamcmp":
-        subcmd = [f"{cwd}/domtblop_bamcmp.py"] + sys.argv[2:]
-
     elif cmd == "togff":
         from domtblop_togff import run
+        run(sys.argv[2:])
+
+    elif cmd == "tobed":
+        from domtblop_tobed import run
         run(sys.argv[2:])
 
     elif cmd == "dummy":

@@ -18,8 +18,9 @@ process HMMSCAN {
     hmmscan --domtblout ${translated.baseName}.domtblout ${hmmdb_dir}/${hmmdb_file} ${translated} > hmmscan.out
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        "hmmscan": \$(hmmscan -h | head -n 2 | tail -n 1 | awk '{print \$3}')
+    ${task.process}:
+        hmmscan: \$(hmmscan -h | head -n 2 | tail -n 1 | awk '{print \$3}')
+    END_VERSIONS
     """
 }
 

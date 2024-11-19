@@ -13,8 +13,8 @@ process JQ_QUERY_ID {
     jq -r '.query_id' ${queryresults} > query_ids.txt
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}" :
-        jq : \$(jq -V | sed -n 's/jq-//p')
+    ${task.process}:
+        jq: \$(jq -V | sed -n 's/jq-//p')
     END_VERSIONS
     """
 }

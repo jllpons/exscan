@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Write structured query results to stdout in GFF/BED format.
+Write structured query results to stdout in GFF format.
 
 Usage:
     domtblop.py togff [options] <serialized_domtblout>
@@ -12,7 +12,6 @@ Arguments:
                                     Use "-" to read from stdin. (default: "-")
 
 Options:
-    --out-format STR                Output format [default: gff3]
     -h, --help                      Show this help message and exit
     -l, --loglevel STR              Set the logging level [default: INFO]
 """
@@ -31,7 +30,6 @@ from typing import (
 from domtblop_parser import (
         HmmscanQueryResult,
         UnexpectedQueryIdFormat,
-        CustomEncoder,
         )
 from domtblop_utils import (
         setup_logger,
@@ -160,12 +158,6 @@ def setup_argparse() -> argparse.ArgumentParser:
 
     # Optional arguments
     parser.add_argument(
-        "--out-format",
-        type=str,
-        default="gff3",
-        choices=["gff3"],
-    )
-    parser.add_argument(
         "-l", "--loglevel",
         type=str,
         default="INFO",
@@ -242,7 +234,7 @@ def run(args: List[str]) -> None:
             logger.error(e)
             sys.exit(1)
 
-        # TODO: Handle groups
+        # TODO: Handle groups?
 
         try:
             features = gff3_from_query_result(query_result)

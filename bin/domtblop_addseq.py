@@ -14,8 +14,9 @@ Arguments:
 
 
 Options:
+    --nucleotide                    Include sequence as nucleotide sequence.
     -h, --help                      Show this help message and exit
-    -l, --loglevel STR               Set the logging level [default: INFO]
+    -l, --loglevel STR              Set the logging level [default: INFO]
 """
 
 import argparse
@@ -70,6 +71,12 @@ def setup_argparse() -> argparse.ArgumentParser:
         )
 
     # Optional arguments
+    parser.add_argument(
+        "--nucleotide",
+        action="store_true",
+        default=False,
+        help="Include sequence as parent sequence."
+    )
     parser.add_argument(
         "-l", "--loglevel",
         type=str,
@@ -184,9 +191,13 @@ def run(args: List[str]) -> None:
             logger.error(e)
             sys.exit(1)
 
-        query_result.sequence = fasta_contents.get(query_result.query_id, None)
+        if config.nucleotide:
+            query_result.nucleotide_sequence = fasta_contents.get(query_result.query_id, None)
 
-        query_result.mk_domain_alignment_fragment_sequences()
+        else:
+            query_result.aminoacid_sequence = fasta_contents.get(query_result.query_id, None)
+
+            query_result.mk_domain_alignment_fragment_sequences()
 
         try:
             print(json.dumps(query_result, cls=CustomEncoder))

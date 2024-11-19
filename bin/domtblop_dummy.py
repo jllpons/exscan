@@ -93,7 +93,8 @@ def build_dummy_hit() -> HmmscanQueryResult:
 
     dummy_query_result = HmmscanQueryResult(
             query_id="myFavoriteGene_frame=1_begin=1_end=100",
-            sequence="MAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEA",
+            aminoacid_sequence="MAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEAMAGNIFICENTSEQUENCEA",
+            nucleotide_sequence="ATGATTNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN",
             domain_hits=[
                 HmmscanDomainHit(
                     accession="PF00001.1",
@@ -187,6 +188,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
             )
 
     dummy_query_result.compute_domain_aligment_fragment_absolut_positions()
+    dummy_query_result.mk_domain_alignment_fragment_sequences()
 
     return dummy_query_result
 

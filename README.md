@@ -8,7 +8,7 @@ of the open reading frames (ORFs), uses profile hidden Markov models (hmm) to de
 
 1. Translate all ORFs of a nucleotide sequence ([`seqkit2`](< https://doi.org/10.1002/imt2.191>)).
 2. Query each ORFs against a profile HMM database ([`hmmscan`](<http://hmmer.org/>))
-3. Perform different operations on each query results. (([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>)), [`jq`](<https://jqlang.github.io/jq/>)).
+3. Perform different operations on each query results. (([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>)), [`jq`](<https://jqlang.github.io/jq/>), [bedtools](<https://bedtools.readthedocs.io/en/latest/>)).
 
 ## Usage
 

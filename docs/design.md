@@ -10,7 +10,7 @@
 
 ## Overview
 
-This document outlines the structure and design choices of the Nextflow pipeline, explaining the organization of components and the rationale behind them. Many of the ideas come from [nf-core documentation](<https://nf-co.re/docs/usage/getting_started/terminology>).
+This document outlines the structure and design choices of the Nextflow pipeline, explaining the organization of components and the rationale behind them. Many of the ideas come from the [nf-core documentation](<https://nf-co.re/docs/usage/getting_started/terminology>).
 
 ## Component Breakdown
 

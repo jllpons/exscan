@@ -523,13 +523,15 @@ class HmmscanQueryResult:
 
     Attributes:
         query_id (str): Identifier of the query sequence.
-        sequence (str): The query sequence.
+        aminoacid_sequence (str): Amino acid sequence of the query.
+        nucleotide_sequence (str): Nucleotide sequence of the query.
         parent_sequence (ParentSequence): Information about the parent sequence.
         domain_hits (List[HmmscanDomainHit]): List of domain hits found in the query.
         group (None | GroupedQueryResults): Data about a set of hits within certain distance.
     """
     query_id: str
-    sequence: str | None = None
+    aminoacid_sequence: str | None = None
+    nucleotide_sequence: str | None = None
     parent_sequence: ParentSequence = field(init=False)
     domain_hits: List[HmmscanDomainHit] = field(default_factory=list)
 
@@ -602,7 +604,8 @@ class HmmscanQueryResult:
 
         return {
                 "query_id": self.query_id,
-                "sequence": self.sequence,
+                "aminoacid_sequence": self.aminoacid_sequence,
+                "nucleotide_sequence": self.nucleotide_sequence,
                 "parent_sequence": {
                     "sequence_id": self.parent_sequence.sequence_id,
                     "start": self.parent_sequence.start,
@@ -646,7 +649,8 @@ class HmmscanQueryResult:
 
         try:
             query_id = json_data["query_id"]
-            sequence = json_data["sequence"]
+            aminoacid_sequence = json_data["aminoacid_sequence"]
+            nucleotide_sequence = json_data["nucleotide_sequence"]
             domain_hits = json_data["domain_hits"]
             group = json_data["group"]
 
@@ -655,7 +659,8 @@ class HmmscanQueryResult:
 
         query_result = cls(
             query_id=query_id,
-            sequence=sequence,
+            aminoacid_sequence=aminoacid_sequence,
+            nucleotide_sequence=nucleotide_sequence,
             domain_hits=[HmmscanDomainHit.from_json(i) for i in domain_hits],
             group=GroupedQueryResults.from_json(group) if group else None
             )
@@ -796,13 +801,12 @@ class HmmscanQueryResult:
         Returns:
             None
         """
-        if not self.sequence:
+        if not self.aminoacid_sequence:
             raise ValueError("Parent sequence is missing")
-
         for domain_hit in self.domain_hits:
             for domain_alignment in domain_hit.domain_alignments:
                 for fragment in domain_alignment.alignment_fragments:
-                    fragment.sequence = self.sequence[fragment.sequence_start:fragment.sequence_end]
+                    fragment.sequence = self.aminoacid_sequence[fragment.sequence_start:fragment.sequence_end]
 
 
 def setup_argparse() -> argparse.ArgumentParser:

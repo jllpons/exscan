@@ -22,8 +22,8 @@ process SEQKIT_TRANSLATE {
     seqkit translate -F -s -f 6 -j ${task.cpus} ${fasta} > ${fasta.baseName}.translated.fasta
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}" :
-        seqkit : \$(seqkit version | sed -e "s/seqkit v//g")
+    ${task.process}:
+        seqkit: \$(seqkit version | sed -e "s/seqkit v//g")
     END_VERSIONS
     """
 }
@@ -36,16 +36,16 @@ process SEQKIT_GREP {
     path fasta
 
     output:
-    path 'seqkit_grep.fasta',  emit: seqkit_grep_results
+    path 'seqkit_grepseq.fasta',  emit: seqkit_grepseq
     path 'versions.yml',       emit: versions
 
     script:
     """
-    seqkit grep -f ${headers} ${fasta} > seqkit_grep.fasta
+    seqkit grep -f ${headers} ${fasta} > seqkit_grepseq.fasta
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}" :
-        seqkit : \$(seqkit version | sed -e "s/seqkit v//g")
+    ${task.process}:
+        seqkit: \$(seqkit version | sed -e "s/seqkit v//g")
     END_VERSIONS
     """
 }
