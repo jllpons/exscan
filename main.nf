@@ -54,7 +54,6 @@ container images : ${workflow.containerEngine}:${workflow.container}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { WRITE_VERSIONS } from './modules/local/utils'
 include { EXSCAN } from './workflows/exscan'
 
 /*
