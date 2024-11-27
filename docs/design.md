@@ -37,3 +37,30 @@ There are two workflows in this project:
 1. `./main.nf`: The entry point of the pipeline. It sets up and validates the environment before running the actual pipeline and handles termination.
 2. `./workflows/exscan.nf`: Contains the main pipeline where processes and subworkflows are connected to accomplish the pipeline's objectives.
 
+## Parameters
+
+#TODO
+
+All parameters are defined in `./nextflow.config`.
+
+Required parameters are defined with `null` as defalut.
+More specific parameters are defined with default values (e.g. params.group =
+3750)
+
+Parameters can be provided either as:
+- CLI arguments `$ nextflow run main.nf --<parameter> <value>`
+- In a `params.yaml` or `params.json` file `$ nextflow run main.nf -params-file
+  <params.yaml>`
+- In a `params.csv` file `$ nextflow run main.nf --input <params.csv>`.
+
+Notice that if you can split each chr into one fasta, and map them to each
+gff/bam file using the `--input <params.csv>` option. This way, each chr will be
+processed in parallel.
+
+>[WARNING]
+> The `-c` opti #TODO
+
+## Configuration
+
+#TODO
+

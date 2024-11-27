@@ -16,10 +16,12 @@ Usage: domtblop.py <operation> [options]
         togff      Convert serialized domain hits or groups to GFF format.
         tobed      Convert serialized domain hits or groups to BED format.
         tocsv      Convert serialized domain hits or groups to CSV format.
+        tofasta    Extract sequences from a FASTA file based on domain hits or groups.
 
     Utilities:
         addseq     Add the amino acid sequence to each query result.
         dummy      Print some serialized dummy query results for testing purposes.
+        plot       Generate some plots in `$PWD/plots/` directory.
         help       Show this help message and exit.
 
 Options:
@@ -65,13 +67,22 @@ def main():
         from domtblop_tobed import run
         run(sys.argv[2:])
 
-    elif cmd == "dummy":
-        from domtblop_dummy import run
+    elif cmd == "tofasta":
+        from domtblop_tofasta import run
         run(sys.argv[2:])
 
     elif cmd == "addseq":
         from domtblop_addseq import run
         run(sys.argv[2:])
+
+    elif cmd == "dummy":
+        from domtblop_dummy import run
+        run(sys.argv[2:])
+
+    elif cmd == "plot":
+        from domtblop_plot import run
+        run(sys.argv[2:])
+
 
     else:
         print(__doc__)

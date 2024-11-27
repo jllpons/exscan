@@ -4,10 +4,12 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { HMMSCAN } from '../modules/local/hmmscan'
-include { JQ_QUERY_ID } from '../modules/local/jq'
-include { SEQKIT_GREP } from '../modules/local/seqkit'
-include { SEQKIT_TRANSLATE } from '../modules/local/seqkit'
+include { HMMSCAN                 } from '../modules/local/hmmscan'
+include { JQ_QUERY_ID             } from '../modules/local/jq'
+include { MERGE_DOMTBLOUT_RESULTS } from '../modules/local/hmmscan'
+include { SEQKIT_GREP             } from '../modules/local/seqkit'
+include { SEQKIT_SPLIT            } from '../modules/local/seqkit'
+include { SEQKIT_TRANSLATE        } from '../modules/local/seqkit'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,56 +28,95 @@ include { DOMTBLOP_DEFAULT } from '../subworkflows/domtblop'
 workflow EXSCAN {
 
     take:
-    ch_fasta      // str     : 'path/to/nucleotide.fasta'
-    hmmdb_file    // str     : Name of HMM database file
-    ch_hmmdb_dir  // str     : 'path/to/hmmdb_dir'
-    ch_group      // channel : 'path/to/group'
-    ch_versions   // channel : [ path(versions.yml) ]
+    fasta
+    hmmdb_file
+    hmmdb_dir
+    domain_ievalue
+    min_alignment_len
+    group
+    ch_versions   // channel : path to versions.yml
 
     main:
 
-    // DESC: Translate nucleotide sequences to amino acid sequences for all 6 reading frames.
-    // ARGS: ch_fasta (str) - path to nucleotide fasta file
-    // RETS: ch_translated (channel) - channel containing path to translated ORFs
-    //       ch_versions (channel) - channel containing path to versions.yml
+    ch_fasta = Channel.fromPath(fasta)
+
+
+    // DESC: Translate all 6 ORFs of a nucleotide fasta file.
+    //       A fasta file containing the translated ORFs is returned.
+    //       One fasta entry = whatever translated sequence bewteen two stop codons.
+    // ARGS: fasta (str)                   - path to nucleotide fasta file
+    // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
+    //       ch_versions (channel)         - channel containing path to versions.yml
+
     SEQKIT_TRANSLATE(
-        ch_fasta
+        fasta = ch_fasta
     )
     // After each process, software versions are collected
     ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
 
+
+    // DESC: Split large fasta files into smaller files so that they can be processed in parallel by hmmscan.
+    //       Note: hmmscan (as far as I know) is very I/O intensive, so parallel > multithreaded.
+    // ARGS: fasta (str)                   - path to nucleotide fasta file
+    // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
+    //       ch_versions (channel)         - channel containing path to versions.yml
+    SEQKIT_SPLIT(
+        fasta = SEQKIT_TRANSLATE.out.fasta_translated
+    )
+    ch_versions = ch_versions.mix(SEQKIT_SPLIT.out.versions)
+
+
     // DESC: Query each ORF against a domain profile HMM database to identify
     //       potential homologous domains.
-    // ARGS: hmmdb_file (str) - Name of HMM database file
-    //       ch_hmmdb_dir (str) - path to HMM database directory
-    //       ch_orfs_pp (channel) - channel containing path to a structured ORF file
-    // RETS: hmmscan_domtblout (path) - path to hmmscan domtblout file
+    // ARGS: hmmdb_file (str)               - Name of HMM database file
+    //       hmmdb_dir (str)                - path to HMM database directory
+    //       ch_fasta_translated (channel)  - channel containing path to a structured ORF file
+    // RETS: ch_hmmscan_domtblout (channel) - path to hmmscan domtblout file
     HMMSCAN(
-        hmmdb_file = hmmdb_file,
-        ch_hmmdb_dir = ch_hmmdb_dir,
-        ch_translated = SEQKIT_TRANSLATE.out.translated
+        hmmdb_file          = hmmdb_file,
+        hmmdb_dir           = hmmdb_dir,
+        ch_fasta_translated = SEQKIT_SPLIT.out.fasta_split.flatten()
     )
     ch_versions = ch_versions.mix(HMMSCAN.out.versions)
 
 
+    Channel.empty()
+        .mix( HMMSCAN.out.hmmscan_domtblout )
+        .collect()
+        .set { ch_hmmscan_domtblout_results }
+    // DESC: Large fasta_translated files are split into multiple files,
+    //       so hmmscan can be run in parallel. This process will merge
+    //       the results back into a single file.
+    // ARGS: HMMSCAN.out.hmmscan_domtblout (channel) - channel containing path to hmmscan domtblout file
+    // RETS: ch_hmmscan_merged_domtblout (channel)  - channel containing path to merged hmmscan domtblout file
+    MERGE_DOMTBLOUT_RESULTS(
+        ch_hmmscan_domtblout = ch_hmmscan_domtblout_results
+    )
+
+
     // DESC: Parse hmmscan domtblout and perform different opeations. (See `./subworkflows/domtblop.nf`)
-    // ARGS: ch_fasta (str) - path to nucleotide fasta file
-    //       ch_translated (channel) - channel containing path to translated ORFs
-    //       ch_domtblout (path) - path to hmmscan domtblout file
-    //       ch_group (channel) - channel containing path to group file
-    // RETS: hmmscan_domtblout (path) - path to hmmscan domtblout file
+    // ARGS: fasta (str)                       - path to nucleotide fasta file
+    //       ch_fasta_translated (channel)     - channel containing path to translated ORFs
+    //       ch_hmmscan_domtblout (channel)    - cannel containing path to hmmscan domtblout file
+    //       group (int)                       - distance in bp under which two hmmscan hits are grouped
+    //       domain_ievalue (float)            - evalue threshold for domain hits
+    //       min_alignment_len (int)           - minimum length of alignment
+    //       ch_versions (channel)             - channel containing path to versions.yml
+    // RETS: ch_qresults_serialized (channel)  - channel containing path to domtblop results
     DOMTBLOP_DEFAULT(
-        ch_fasta = ch_fasta,
-        ch_translated = SEQKIT_TRANSLATE.out.translated,
-        ch_domtblout = HMMSCAN.out.hmmscan_domtblout,
-        ch_group = ch_group,
-        ch_versions = ch_versions
+        fasta                = ch_fasta,
+        ch_fasta_translated  = SEQKIT_TRANSLATE.out.fasta_translated,
+        ch_hmmscan_domtblout = MERGE_DOMTBLOUT_RESULTS.out.hmmscan_merged_domtblout,
+        domain_ievalue       = domain_ievalue,
+        min_alignment_len    = min_alignment_len,
+        group                = group,
+        ch_versions          = ch_versions
     )
     ch_versions = ch_versions.mix(DOMTBLOP_DEFAULT.out.versions)
 
 
     emit:
-    hmmscan_domtblout = HMMSCAN.out.hmmscan_domtblout // path: 'path/to/hmmscan_domtblout'
-    versions = ch_versions                            // channel: [ path(versions.yml) ]
+    results  = DOMTBLOP_DEFAULT.out.qresults_serialized // channel containing path to domtblop results
+    versions = ch_versions                              // channel containing path to versions.yml
 }
 
