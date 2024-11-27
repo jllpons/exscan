@@ -43,7 +43,8 @@ class Fasta:
     sequence: str
 
     def __str__(self):
-        return f">{self.header}\n{'chr(10)'.join(self.sequence[i:i+80] for i in range(0, len(self.sequence), 60))}"
+        seq_newline = "\n".join(self.sequence[i:i+80] for i in range(0, len(self.sequence), 80))
+        return f">{self.header}\n{seq_newline}"
 
 
 def setup_argparse() -> argparse.ArgumentParser:

@@ -195,13 +195,13 @@ process DOMTBLOP_TOFASTA {
         'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
         'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
 
-    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*fasta"
+    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.fasta"
 
     input:
     path qresults_serialized
 
     output:
-    path '*fasta',              emit: qresults_fasta
+    path '*.fasta',             emit: qresults_fasta
     path 'versions.yml',        emit: versions
 
     script:
