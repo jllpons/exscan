@@ -204,7 +204,7 @@ workflow DOMTBLOP_DEFAULT {
     // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with grouped hits
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_GROUP(
-        ch_hits_serialized = DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW.out.qresults_serialized,
+        ch_hits_serialized = DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE.out.qresults_serialized,
         params.group
     )
     ch_versions = ch_versions.mix(DOMTBLOP_GROUP.out.versions)
