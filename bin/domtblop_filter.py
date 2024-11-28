@@ -23,24 +23,24 @@ Filtering options:
     Domain-Hit Level Filters:
     Those filter apply to the different hits a query sequence may have against the same profile HMM.
 
-        --dom-ievalue <value> FLOAT          Keep hits with independent e-value <= value
-        --dom-cevalue <value> FLOAT          Keep hits with conditional e-value <= value
-        --dom-score <value> FLOAT            Keep hits with domain score >= value
-        --dom-bias <value> FLOAT             Keep hits with domain bias <= value
+        --dom-ievalue <value> FLOAT         Keep hits with independent e-value <= value
+        --dom-cevalue <value> FLOAT         Keep hits with conditional e-value <= value
+        --dom-score <value> FLOAT           Keep hits with domain score >= value
+        --dom-bias <value> FLOAT            Keep hits with domain bias <= value
 
     Domain-Alignment-Level Filters:
     Those filter apply to the different domain alignments a query sequence may have against the same profile HMM.
 
-        --min-alignment-length <value> INT   Keep hits with domain alignment length >= value (sequence side)
+        --min-alignment-len <value> INT     Keep hits with domain alignment length >= value (sequence side)
 
 Selection Options:
 
-    --best-hit BOOL                          Only keep the best hit for each sequence or domain
-                                             **based on filtering criteria**
+    --best-hit BOOL                         Only keep the best hit for each sequence or domain
+                                            **based on filtering criteria**
 
 Options:
-    -h, --help                               Show this help message and exit
-    -l, --loglevel STR                       Set the logging level [default: INFO]
+    -h, --help                              Show this help message and exit
+    -l, --loglevel STR                      Set the logging level [default: INFO]
 
 Notes:
 
@@ -647,17 +647,17 @@ def run(args: List[str]) -> None:
             if config.best_hit:
                 keep_best_domain_alignment(query_result, DomainHitLevelFilter.IEVALUE, logger)
 
-        if config.dom_cevalue:
+        elif config.dom_cevalue:
             filter_domain_hit_level(query_result, config.dom_cevalue, DomainHitLevelFilter.CEVALUE, logger)
             if config.best_hit:
                 keep_best_domain_alignment(query_result, DomainHitLevelFilter.CEVALUE, logger)
 
-        if config.dom_score:
+        elif config.dom_score:
             filter_domain_hit_level(query_result, config.dom_score, DomainHitLevelFilter.SCORE, logger)
             if config.best_hit:
                 keep_best_domain_alignment(query_result, DomainHitLevelFilter.SCORE, logger)
 
-        if config.dom_bias:
+        elif config.dom_bias:
             filter_domain_hit_level(query_result, config.dom_bias, DomainHitLevelFilter.BIAS, logger)
             if config.best_hit:
                 keep_best_domain_alignment(query_result, DomainHitLevelFilter.BIAS, logger)

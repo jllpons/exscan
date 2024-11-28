@@ -209,6 +209,7 @@ process DOMTBLOP_TOFASTA {
     domtblop.py tofasta ${qresults_serialized} --seq-kind nucleotide > ${qresults_serialized.baseName}.nucleotide.fasta
     domtblop.py tofasta ${qresults_serialized} --seq-kind protein > ${qresults_serialized.baseName}.protein.fasta
     domtblop.py tofasta ${qresults_serialized} --seq-kind domain-alignment > ${qresults_serialized.baseName}.domain_alignment.fasta
+    domtblop.py tofasta ${qresults_serialized} --seq-kind domain-alignment --domain-alignment-offset 10 > ${qresults_serialized.baseName}.domain_alignment_offset.fasta
 
     cat <<-END_VERSIONS > versions.yml
     ${task.process}:

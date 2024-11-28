@@ -18,6 +18,9 @@ Arguments:
                                         - "domain-alignment": The protein sequence of the ORFs that could be aligned against the domain.
 
 Options:
+    --domain-alignment-offset INT   Offset to apply to the domain alignment sequences.
+                                    Offset is subtracted from the start and added to the end of the domain alignment sequence.
+
     -h, --help                      Show this help message and exit
     -l, --loglevel STR              Set the logging level [default: INFO]
 """
@@ -47,6 +50,73 @@ class Fasta:
         return f">{self.header}\n{seq_newline}"
 
 
+def mk_domain_alignment_fasta(query_result: HmmscanQueryResult, offset: int = 0) -> List[Fasta]:
+    """
+    Create a list of FASTA objects from the domain alignments of a query result.
+
+    Args:
+        query_result (HmmscanQueryResult): The query result.
+        offset (int): The offset to apply to the domain alignment sequences. [default: 0]
+                      Offset is subtracted from the start and added to the end of the domain alignment sequence.
+                      Since many times, the domain alignment sequences are shorter than the actual protein sequence,
+                      it may be useful to extract a longer sequence around the domain alignment.
+
+    Returns:
+        List[Fasta]: A list of FASTA objects.
+
+    Raises:
+        ValueError: If no domain hits, domain alignments, or alignment fragments are found in the query result.
+    """
+    if not query_result.domain_hits:
+        raise ValueError(f"No domain hits found for query '{query_result.query_id}'.")
+    if not any(domain_hit.domain_alignments for domain_hit in query_result.domain_hits):
+        raise ValueError(f"No domain alignments found for query '{query_result.query_id}'.")
+    if not any(domain_alignment.alignment_fragments for domain_hit in query_result.domain_hits for domain_alignment in domain_hit.domain_alignments):
+        raise ValueError(f"No alignment fragments found for query '{query_result.query_id}'.")
+    if not query_result.aminoacid_sequence:
+        raise ValueError(f"No protein sequence found for query '{query_result.query_id}'.")
+
+    fastas = []
+
+    for domain_hit in query_result.domain_hits:
+        for domain_alignment in domain_hit.domain_alignments:
+
+            header = f"{query_result.query_id}::{domain_hit.name}"
+            sequence = domain_alignment.alignment_fragments[0].sequence
+
+            if len(domain_alignment.alignment_fragments) == 1:
+
+                if offset > 0:
+                    header += f"::offset={offset}"
+
+                    start = domain_alignment.alignment_fragments[0].sequence_start
+                    end = domain_alignment.alignment_fragments[0].sequence_end
+
+                    if start < offset:
+                        start = 0
+                    else:
+                        start = start - offset
+
+                    if len(query_result.aminoacid_sequence) < ( end + offset):
+                        end = len(query_result.aminoacid_sequence)
+                    else:
+                        end = end + offset
+
+                    sequence = query_result.aminoacid_sequence[start:end]
+
+
+                fastas.append(Fasta(header=header, sequence=sequence))
+
+            else:
+                raise ValueError(
+                        f"Multiple alignment fragments found for query '{query_result.query_id}'",
+                        "logic still needs to be implemented."
+                        )
+
+
+    return fastas
+
+
 def setup_argparse() -> argparse.ArgumentParser:
     """
     Sets up the argparse instance for command-line arguments.
@@ -73,10 +143,9 @@ def setup_argparse() -> argparse.ArgumentParser:
 
     # Optional arguments
     parser.add_argument(
-        "--out-format",
-        type=str,
-        default="bed",
-        choices=["bed", "gff3"],
+        "--domain-alignment-offset",
+        type=int,
+        default=0,
     )
     parser.add_argument(
         "-l",
@@ -167,7 +236,7 @@ def run(args: List[str]) -> None:
                     logger.warning(f"No nucleotide sequence found for query '{query_result.query_id}'.")
                     continue
                 fasta = Fasta(
-                    header=query_result.query_id,
+                        header=f"{query_result.query_id}::{';'.join([i.name for i in query_result.domain_hits])}",
                     sequence=query_result.nucleotide_sequence if query_result.nucleotide_sequence else ""
                 )
 
@@ -176,7 +245,7 @@ def run(args: List[str]) -> None:
                     logger.warning(f"No protein sequence found for query '{query_result.query_id}'.")
                     continue
                 fasta = Fasta(
-                    header=query_result.query_id,
+                        header=f"{query_result.query_id}::{';'.join([i.name for i in query_result.domain_hits])}",
                     sequence=query_result.aminoacid_sequence if query_result.aminoacid_sequence else ""
                 )
 
@@ -184,10 +253,12 @@ def run(args: List[str]) -> None:
                 if not query_result.domain_hits[0].domain_alignments[0].alignment_fragments[0].sequence:
                     logger.warning(f"No domain alignment found for query '{query_result.query_id}'.")
                     continue
-                fasta = Fasta(
-                    header=query_result.query_id,
-                    sequence=query_result.domain_hits[0].domain_alignments[0].alignment_fragments[0].sequence if query_result.domain_hits[0].domain_alignments[0].alignment_fragments[0].sequence else ""
-                )
+
+                try:
+                    fasta = mk_domain_alignment_fasta(query_result, config.domain_alignment_offset)
+                except ValueError as e:
+                    logger.warning(e)
+                    continue
 
             case _:
                 logger.error(f"Sequence kind '{config.seq_kind}' not recognized.")
@@ -195,7 +266,12 @@ def run(args: List[str]) -> None:
 
 
         try:
-            print(fasta)
+            if isinstance(fasta, list):
+                for f in fasta:
+                    print(f)
+            else:
+                print(fasta)
+
         except BrokenPipeError:
             devnull = os.open(os.devnull, os.O_WRONLY)
             os.dup2(devnull, sys.stdout.fileno())

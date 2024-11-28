@@ -24,8 +24,10 @@ import sys
 from typing import List, Tuple
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
+from upsetplot import from_memberships, UpSet
 
 from domtblop_parser import (
     HmmscanQueryResult,
@@ -34,6 +36,7 @@ from domtblop_parser import (
 from domtblop_utils import setup_logger, read_input
 
 
+# Set the default style for the plots
 sns.set_theme()
 
 
@@ -47,6 +50,8 @@ golden_ratio = (1 + 5**0.5) / 2
 
 HORIZONTAL_FIGSIZE = (my_width, my_width / golden_ratio)
 VERTICAL_FIGSIZE = (my_width*golden_ratio, my_width)
+XXLARGE_HORIZ_FIGSIZE = (my_width*5, my_width*5 / golden_ratio)
+XXLARGE_VERT_FIGSIZE = (my_width*5*golden_ratio, my_width*5)
 
 
 def mk_plots_dir() -> None:
@@ -113,8 +118,11 @@ def mk_nhits_per_profile_and_per_chromosome_barplot(
             data["chromosome"].append(query_result.parent_sequence.sequence_id)
 
     df = pd.DataFrame(data)
+    # Sort the df by chromosome (taking into account the chromosome number)
+    df["chromosome_number"] = df["chromosome"].str.extract(r"(\d+)")
+    df = df.sort_values(by=["chromosome_number", "chromosome", "hmmProfile"])
 
-    f, ax = plt.subplots(figsize=VERTICAL_FIGSIZE)
+    f, ax = plt.subplots(figsize=XXLARGE_HORIZ_FIGSIZE)
 
     sns.set_color_codes("muted")
 
@@ -126,19 +134,153 @@ def mk_nhits_per_profile_and_per_chromosome_barplot(
         hue_order=df["hmmProfile"].value_counts().index,
         )
 
-    ax.bar_label(ax.containers[0], fontsize=8)
+    ax.bar_label(ax.containers[0], fontsize=9)
     for container in ax.containers:
-        ax.bar_label(container, fontsize=8)
+        ax.bar_label(container, fontsize=9)
 
-    plt.xlabel("Chromosome", size=9)
-    plt.ylabel("Number of hits", size=9)
-    plt.xticks(size=8,)
-    ax.set_title("Number of hits per HMM profile and per chromosome")
+    plt.xlabel("Chromosome", size=30)
+    plt.ylabel("Number of hits", size=30)
+    plt.xticks(size=20, rotation=45)
+    plt.yticks(size=20,)
+    ax.set_title("Number of hits per HMM profile and per chromosome", size=40)
 
-    plt.legend(loc="upper right", fontsize=8)
+    plt.legend(loc="upper right", fontsize=20)
 
     plt.savefig("plots/nhits_per_profile_and_per_chromosome_barplot.svg", format="svg")
+    plt.clf()
+    plt.close()
 
+
+def mk_violinplot_evalue_distribution_per_profile(
+        query_results: List[HmmscanQueryResult],
+        logger: logging.Logger,
+        ) -> None:
+
+    data = {"query_id": [], "hmmProfile": [], "evalue": []}
+    for query_result in query_results:
+        for domain_hit in query_result.domain_hits:
+            data["query_id"].append(query_result.query_id)
+            data["hmmProfile"].append(domain_hit.name)
+            data["evalue"].append(domain_hit.full_sequence_evalue)
+
+    df = pd.DataFrame(data)
+
+    df = df.sort_values(by=["hmmProfile", "evalue"])
+
+    f, ax = plt.subplots(figsize=HORIZONTAL_FIGSIZE)
+
+    sns.violinplot(
+        y="evalue",
+        x="hmmProfile",
+        data=df,
+        ax=ax,
+        scale="width",
+        hue="hmmProfile",
+        )
+
+
+    #ax.set_yscale("log")
+    #ax.set_ylim(min(df["evalue"]), 1e-3)
+    plt.xlabel("HMM Profile", size=9)
+    plt.ylabel("E-value", size=9)
+    plt.yticks(size=8,)
+    plt.xticks(size=6)
+    ax.set_title("E-value distribution per HMM profile")
+
+    plt.savefig("plots/violinplot_evalue_distribution_per_profile.svg", format="svg")
+    plt.clf()
+    plt.close()
+
+
+def mk_violinplot_aligment_length_distribution_per_profile(
+        query_results: List[HmmscanQueryResult],
+        logger: logging.Logger,
+        ) -> None:
+
+    data = {"query_id": [], "hmmProfile": [], "alignment_length": []}
+    for query_result in query_results:
+        for domain_hit in query_result.domain_hits:
+            data["query_id"].append(query_result.query_id)
+            data["hmmProfile"].append(domain_hit.name)
+
+            best_domain_alignment = max(domain_hit.domain_alignments, key=lambda x: x.independent_evalue)
+
+            length = 0
+            for domain_alignment_fragment in best_domain_alignment.alignment_fragments:
+                length += (domain_alignment_fragment.sequence_end - domain_alignment_fragment.sequence_start)
+
+            data["alignment_length"].append(length)
+
+
+    df = pd.DataFrame(data)
+
+    df.sort_values(by=["hmmProfile", "alignment_length"])
+
+    f, ax = plt.subplots(figsize=HORIZONTAL_FIGSIZE)
+
+    sns.violinplot(
+        y="alignment_length",
+        x="hmmProfile",
+        data=df,
+        ax=ax,
+        scale="width",
+        hue="hmmProfile",
+        )
+
+    plt.xlabel("HMM Profile", size=9)
+    plt.ylabel("No. Residues", size=9)
+    plt.yticks(size=8,)
+    plt.xticks(size=6)
+    ax.set_title("No. of residues from translated sequence aligned against HMM profiles")
+
+    plt.savefig("plots/violinplot_alignment_length_distribution_per_profile.svg", format="svg")
+    plt.clf()
+    plt.close()
+
+
+def mk_upset_hits_per_sequence(
+        query_results: List[HmmscanQueryResult],
+        logger: logging.Logger,
+        ) -> None:
+    """
+    """
+
+    query_id_memberships = {}
+    for query_result in query_results:
+        query_id_memberships[query_result.query_id] = ""
+
+    for query_result in query_results:
+        for domain_hit in query_result.domain_hits:
+            if domain_hit.name not in query_id_memberships[query_result.query_id].split(","):
+                query_id_memberships[query_result.query_id] += f"{domain_hit.name},"
+
+    # remove trailing comma
+    for query_id in query_id_memberships:
+        query_id_memberships[query_id] = query_id_memberships[query_id][:-1]
+
+    to_lists = [
+        i.split(",") for i in query_id_memberships.values()
+        ]
+
+    df = from_memberships(to_lists)
+
+    f, ax = plt.subplots(figsize=XXLARGE_HORIZ_FIGSIZE)
+    upset = UpSet(
+        df,
+        subset_size="count",
+        sort_by="cardinality",
+        show_counts=True,
+        show_percentages=True,
+        element_size=70,
+        )
+
+    upset.plot()
+
+    plt.title("Profile HMM Hits per Translated Sequence", size=25)
+
+    plt.savefig("plots/upset_hits_per_sequence.svg", format="svg")
+    plt.clf()
+    plt.close()
 
 
 def setup_argparse() -> argparse.ArgumentParser:
@@ -239,3 +381,9 @@ def run(args: List[str]) -> None:
     mk_nhits_per_profile_barplot(query_results, logger)
 
     mk_nhits_per_profile_and_per_chromosome_barplot(query_results, logger)
+
+    mk_upset_hits_per_sequence(query_results, logger)
+
+    mk_violinplot_evalue_distribution_per_profile(query_results, logger)
+
+    mk_violinplot_aligment_length_distribution_per_profile(query_results, logger)
