@@ -10,22 +10,32 @@ process SEQKIT_TRANSLATE {
 
     input:
     path fasta
+    val  fasta_type
 
     output:
     path '*translated.fasta',     emit: fasta_translated
     path 'versions.yml',          emit: versions
 
     script:
-    """
-    seqkit translate --append-frame --out-subseqs --frame 6 --min-len 12 --threads ${task.cpus} ${fasta} > ${fasta.baseName}.translated.fasta
+    if (fasta_type == 'dna') {
+        """
+        seqkit translate --append-frame --out-subseqs --frame 6 --min-len 12 --threads ${task.cpus} ${fasta} > ${fasta.baseName}.translated.fasta
 
-    seqkit split2 --quiet --by-size 300000 --threads ${task.cpus} --by-size-prefix translated.split.fasta ${fasta.baseName}.translated.fasta --out-dir ${params.outdir}/seqkit/split
+        cat <<-END_VERSIONS > versions.yml
+        ${task.process}:
+            seqkit: \$(seqkit version | sed -e "s/seqkit v//g")
+        END_VERSIONS
+        """
+    } else {
+        """
+        seqkit translate --min-len 12 --threads ${task.cpus} ${fasta} > ${fasta.baseName}.translated.fasta
 
-    cat <<-END_VERSIONS > versions.yml
-    ${task.process}:
-        seqkit: \$(seqkit version | sed -e "s/seqkit v//g")
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        ${task.process}:
+            seqkit: \$(seqkit version | sed -e "s/seqkit v//g")
+        END_VERSIONS
+        """
+    }
 }
 
 

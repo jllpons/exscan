@@ -205,7 +205,7 @@ workflow DOMTBLOP_DEFAULT {
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_GROUP(
         ch_hits_serialized = DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH.out.qresults_serialized,
-        params.group
+        group
     )
     ch_versions = ch_versions.mix(DOMTBLOP_GROUP.out.versions)
 

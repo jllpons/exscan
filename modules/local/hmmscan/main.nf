@@ -45,7 +45,6 @@ process MERGE_DOMTBLOUT_RESULTS {
 
     script:
     """
-    echo ${domtblout_files}
     cat ${domtblout_files} | grep -v '^#' > hmmscan_merged.domtblout
     """
 }

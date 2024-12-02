@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+include { GAWK_HEADER_METADATA    } from '../modules/local/gawk'
 include { HMMSCAN                 } from '../modules/local/hmmscan'
 include { JQ_QUERY_ID             } from '../modules/local/jq'
 include { MERGE_DOMTBLOUT_RESULTS } from '../modules/local/hmmscan'
@@ -32,27 +33,41 @@ workflow EXSCAN {
     hmmdb_file
     hmmdb_dir
     domain_ievalue
+    fasta_type
+    group_distance
     min_alignment_len
-    group
-    ch_versions   // channel : path to versions.yml
+    ch_versions
 
     main:
 
     ch_fasta = Channel.fromPath(fasta)
 
 
-    // DESC: Translate all 6 ORFs of a nucleotide fasta file.
-    //       A fasta file containing the translated ORFs is returned.
-    //       One fasta entry = whatever translated sequence bewteen two stop codons.
-    // ARGS: fasta (str)                   - path to nucleotide fasta file
-    // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
-    //       ch_versions (channel)         - channel containing path to versions.yml
+    if (fasta_type == 'dna' || fasta_type == 'rna') {
+        // DESC: Translate all 6 ORFs of a nucleotide fasta file.
+        //       A fasta file containing the translated ORFs is returned.
+        //       One fasta entry = whatever translated sequence bewteen two stop codons.
+        // ARGS: fasta (str)                   - path to nucleotide fasta file
+        // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
+        //       ch_versions (channel)         - channel containing path to versions.yml
 
-    SEQKIT_TRANSLATE(
-        fasta = ch_fasta
-    )
-    // After each process, software versions are collected
-    ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
+        SEQKIT_TRANSLATE(
+            fasta      = ch_fasta,
+            fasta_type = fasta_type
+        )
+        // After each process, software versions are collected
+        ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
+        ch_fasta_translated = SEQKIT_TRANSLATE.out.fasta_translated
+    } else {
+        // DESC: If the fasta file is already translated, then we can skip the translation step.
+        //       Still, we need to mock the metadata that seqkit-translate would have appended
+        //       to the fasta headers.
+        GAWK_HEADER_METADATA(
+            fasta = ch_fasta
+        )
+        ch_versions = ch_versions.mix(GAWK_HEADER_METADATA.out.versions)
+        ch_fasta_translated = GAWK_HEADER_METADATA.out.fasta_translated
+    }
 
 
     // DESC: Split large fasta files into smaller files so that they can be processed in parallel by hmmscan.
@@ -61,7 +76,7 @@ workflow EXSCAN {
     // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
     //       ch_versions (channel)         - channel containing path to versions.yml
     SEQKIT_SPLIT(
-        fasta = SEQKIT_TRANSLATE.out.fasta_translated
+        fasta = ch_fasta_translated
     )
     ch_versions = ch_versions.mix(SEQKIT_SPLIT.out.versions)
 
@@ -98,18 +113,18 @@ workflow EXSCAN {
     // ARGS: fasta (str)                       - path to nucleotide fasta file
     //       ch_fasta_translated (channel)     - channel containing path to translated ORFs
     //       ch_hmmscan_domtblout (channel)    - cannel containing path to hmmscan domtblout file
-    //       group (int)                       - distance in bp under which two hmmscan hits are grouped
     //       domain_ievalue (float)            - evalue threshold for domain hits
     //       min_alignment_len (int)           - minimum length of alignment
+    //       group (int)                       - distance in bp under which two hmmscan hits are grouped
     //       ch_versions (channel)             - channel containing path to versions.yml
     // RETS: ch_qresults_serialized (channel)  - channel containing path to domtblop results
     DOMTBLOP_DEFAULT(
         fasta                = ch_fasta,
-        ch_fasta_translated  = SEQKIT_TRANSLATE.out.fasta_translated,
+        ch_fasta_translated  = ch_fasta_translated,
         ch_hmmscan_domtblout = MERGE_DOMTBLOUT_RESULTS.out.hmmscan_merged_domtblout,
         domain_ievalue       = domain_ievalue,
         min_alignment_len    = min_alignment_len,
-        group                = group,
+        group_distance       = group_distance,
         ch_versions          = ch_versions
     )
     ch_versions = ch_versions.mix(DOMTBLOP_DEFAULT.out.versions)

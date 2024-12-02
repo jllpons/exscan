@@ -14,19 +14,20 @@ Required Arguments:
     --hmmdb <hmmdb>           : Profile HMM database file
                                 Index files from hmmpress must also be located in the same directory
 
-Alternatives to Required Arguments:
+Alternative to Required Arguments:
     -params-file <yaml>       : YAML/JSON file with parameters for each sample
                                 Mutually exclusive with --fasta and --hmmdb
 
 Optional Arguments:
     --dom_ieval <val>         : Domain alignment individual e-value filter [default: ${params.dom_ieval}]
                                 Domain alignments with **EQUAL OR LESS** than this e-value will be kept
-
+    --fasta_type <val>        : Type of sequences found in input `--fasta` file.
+                                Choices: {dna, rna, protein} [defalut: $params.fasta_type]
+    --group_distance <val>    : Group query results within n bps [default: ${params.group_distance}]
     --min_alignment_len <val> : Domain alignment minimum lenght filter [default: ${params.min_alignment_len}]
                                 Domain alignments with **EQUAL OR MORE** than this distance will be
-
-    --group <group>           : Group query results within n bps [default: ${params.group}]
     --outdir <outdir>         : Output directory [default: ${params.outdir}]
+
     --help                    : Print help message and exit
     --version                 : Print version and exit
 """
@@ -35,17 +36,18 @@ init_summary = """
 E X S C A N   P I P E L I N E   v${params.manifest.version}
 ======================================
 fasta             : ${params.fasta}
-profile database  : ${params.hmmdb}
-dom-ieval         : ${params.dom_ieval}
+hmmdb             : ${params.hmmdb}
+dom_ieval         : ${params.dom_ieval}
+fasta_type        : ${params.fasta_type}
+group_distance    : ${params.group_distance}
 min_alignment_len : ${params.min_alignment_len}
-group             : ${params.group}
 outdir            : ${params.outdir}
 
 --
 
-run as            : ${workflow.commandLine}
-started at        : ${workflow.start}
-config files      : ${workflow.configFiles}
+Run as            : ${workflow.commandLine}
+Started at        : ${workflow.start}
+Config files      : ${workflow.configFiles}
 
 --
 """
@@ -104,6 +106,11 @@ def validateParams() {
     }
     if (!file(params.hmmdb).exists()) {
         log.error "File not found: ${params.hmmdb}"
+        System.exit(1)
+    }
+
+    if (params.fasta_type != 'dna' && params.fasta_type != 'rna' && params.fasta_type != 'protein') {
+        log.error "Invalid fasta type: ${params.fasta_type}. Must be one of {dna, rna, protein}"
         System.exit(1)
     }
 
@@ -199,8 +206,9 @@ workflow {
         params.hmmdb_file,
         params.hmmdb_dir,
         params.dom_ieval,
+        params.fasta_type,
+        params.group_distance,
         params.min_alignment_len,
-        params.group,
         ch_versions
     )
     ch_versions = ch_versions.mix(EXSCAN.out.versions)

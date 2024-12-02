@@ -39,14 +39,12 @@ from domtblop_utils import setup_logger, read_input
 # Set the default style for the plots
 sns.set_theme()
 
-
+# Set up the figure sizes
 pt = 1./72.27 # 72.27 points per inch
-
 two_columns_figure = 539.*pt
+golden_ratio = (1 + 5**0.5) / 2
 
 my_width = two_columns_figure
-
-golden_ratio = (1 + 5**0.5) / 2
 
 HORIZONTAL_FIGSIZE = (my_width, my_width / golden_ratio)
 VERTICAL_FIGSIZE = (my_width*golden_ratio, my_width)
@@ -76,6 +74,7 @@ def mk_nhits_per_profile_barplot(
     for query_result in query_results:
         for domain_hit in query_result.domain_hits:
             data["hmmProfile"].append(domain_hit.name)
+            data["hmmProfile"].append("Total")
 
     df = pd.DataFrame(data)
 
@@ -238,6 +237,47 @@ def mk_violinplot_aligment_length_distribution_per_profile(
     plt.close()
 
 
+def mk_violin_bitscore_distribution_per_profile(
+        query_results: List[HmmscanQueryResult],
+        logger: logging.Logger,
+        ) -> None:
+    """
+    """
+
+    data = {"query_id": [], "hmmProfile": [], "bitscore": []}
+    for query_result in query_results:
+        for domain_hit in query_result.domain_hits:
+            data["query_id"].append(query_result.query_id)
+            data["hmmProfile"].append(domain_hit.name)
+            data["bitscore"].append(domain_hit.full_sequence_score)
+
+    df = pd.DataFrame(data)
+
+    df = df.sort_values(by=["hmmProfile", "bitscore"])
+
+    f, ax = plt.subplots(figsize=HORIZONTAL_FIGSIZE)
+
+    sns.violinplot(
+        y="bitscore",
+        x="hmmProfile",
+        data=df,
+        ax=ax,
+        scale="width",
+        hue="hmmProfile",
+        )
+
+    plt.xlabel("HMM Profile", size=9)
+    plt.ylabel("Bitscore", size=9)
+
+    plt.yticks(size=8,)
+    plt.xticks(size=6)
+
+    ax.set_title("Bitscore distribution per HMM profile Hits")
+
+    plt.savefig("plots/violinplot_bitscore_distribution_per_profile.svg", format="svg")
+    plt.clf()
+
+
 def mk_upset_hits_per_sequence(
         query_results: List[HmmscanQueryResult],
         logger: logging.Logger,
@@ -387,3 +427,5 @@ def run(args: List[str]) -> None:
     mk_violinplot_evalue_distribution_per_profile(query_results, logger)
 
     mk_violinplot_aligment_length_distribution_per_profile(query_results, logger)
+
+    mk_violin_bitscore_distribution_per_profile(query_results, logger)
