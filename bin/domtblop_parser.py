@@ -452,7 +452,7 @@ class HmmscanQueryResult:
                 end: The end position of the hit.
         """
 
-        if "_begin=" not in self.query_id:
+        if "_frame=" not in self.query_id:
             raise UnexpectedQueryIdFormat("Query id must contain '_frame=', '_start=', and '_end='")
 
         parts = self.query_id.split("_")
@@ -466,7 +466,7 @@ class HmmscanQueryResult:
         except ValueError:
             raise UnexpectedQueryIdFormat("Start and end positions must be integers")
 
-        strand = "+" if frame > 0 else "-"
+        strand = "+" if frame >= 0  else "-"
         #strand = "+"
         ## if frame is negative, the hit is on the reverse strand
         ## so we need to swap the start and end positions

@@ -54,7 +54,7 @@ def bed_from_query_result(query_result: HmmscanQueryResult) -> BedFeature:
         BedFeature: A BedFeature object.
     """
     seqid = query_result.parent_sequence.sequence_id
-    start = query_result.parent_sequence.start - 1 # Remember that BED is 0-based
+    start = query_result.parent_sequence.start - 1 if query_result.parent_sequence.start > 0 else 0
     end = query_result.parent_sequence.end
     query_id = query_result.query_id
 

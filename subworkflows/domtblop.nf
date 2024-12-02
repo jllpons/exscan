@@ -132,6 +132,7 @@ workflow DOMTBLOP_DEFAULT {
     ch_fasta_translated   // channel : [ path(path/to/nucleotide.translated.fasta) ]
     ch_hmmscan_domtblout  // channel : [ path(path/to/domtblout) ]
     domain_ievalue        // str     : E-value threshold for domain filtering
+    fasta_type            // str     : Type of fasta file (dna, rna, protein)
     min_alignment_len     // int     : Minimum length of alignment
     group                 // int     : Hit maximum grouping distance
     ch_versions           // channel : [ path(versions.yml) ]
@@ -161,17 +162,22 @@ workflow DOMTBLOP_DEFAULT {
     ch_versions = ch_versions.mix(DOMTBLOP_ADD_AMINOACIDSEQ_WORKFLOW.out.versions)
 
 
-    // DESC: Add nucleotide sequences to the serialized JSON file
-    // ARGS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
-    //       ch_fasta (channel)               - Channel containing path to nucleotide fasta file
-    // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
-    //       ch_versions (channel)            - Channel containing path to versions.yml
-    DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW(
-        ch_qresults_serialized = DOMTBLOP_ADD_AMINOACIDSEQ_WORKFLOW.out.qresults_serialized,
-        ch_fasta = fasta,
-        ch_versions = ch_versions,
-    )
-    ch_versions = ch_versions.mix(DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW.out.versions)
+    if (fasta_type == "dna" || fasta_type == "rna") {
+        // DESC: Add nucleotide sequences to the serialized JSON file
+        // ARGS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
+        //       ch_fasta (channel)               - Channel containing path to nucleotide fasta file
+        // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
+        //       ch_versions (channel)            - Channel containing path to versions.yml
+        DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW(
+            ch_qresults_serialized = DOMTBLOP_ADD_AMINOACIDSEQ_WORKFLOW.out.qresults_serialized,
+            ch_fasta = fasta,
+            ch_versions = ch_versions,
+        )
+        ch_versions = ch_versions.mix(DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW.out.versions)
+        ch_qresults_serialized = DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW.out.qresults_serialized
+    } else {
+        ch_qresults_serialized = DOMTBLOP_ADD_AMINOACIDSEQ_WORKFLOW.out.qresults_serialized
+    }
 
 
     // DESC: Filter hits using each domain individual E-value as a threshold
@@ -180,7 +186,7 @@ workflow DOMTBLOP_DEFAULT {
     // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with filtered hits
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE(
-        ch_qresults_serialized = DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW.out.qresults_serialized,
+        ch_qresults_serialized = ch_qresults_serialized,
         threshold = domain_ievalue,
     )
     ch_versions = ch_versions.mix(DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE.out.versions)

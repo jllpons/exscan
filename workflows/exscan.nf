@@ -114,6 +114,7 @@ workflow EXSCAN {
     //       ch_fasta_translated (channel)     - channel containing path to translated ORFs
     //       ch_hmmscan_domtblout (channel)    - cannel containing path to hmmscan domtblout file
     //       domain_ievalue (float)            - evalue threshold for domain hits
+    //       fasta_type (str)                  - type of fasta file (dna, rna, or protein)
     //       min_alignment_len (int)           - minimum length of alignment
     //       group (int)                       - distance in bp under which two hmmscan hits are grouped
     //       ch_versions (channel)             - channel containing path to versions.yml
@@ -123,6 +124,7 @@ workflow EXSCAN {
         ch_fasta_translated  = ch_fasta_translated,
         ch_hmmscan_domtblout = MERGE_DOMTBLOUT_RESULTS.out.hmmscan_merged_domtblout,
         domain_ievalue       = domain_ievalue,
+        fasta_type           = fasta_type,
         min_alignment_len    = min_alignment_len,
         group_distance       = group_distance,
         ch_versions          = ch_versions
