@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Write structured query results to stdout in GFF format.
+Write serialized query results to stdout in GFF format.
 
 Usage:
     domtblop.py togff [options] <serialized_domtblout>
@@ -17,7 +17,6 @@ Options:
 """
 
 import argparse
-from dataclasses import dataclass
 import json
 import logging
 import os
@@ -28,6 +27,7 @@ from typing import (
         )
 
 from domtblop_parser import (
+        GffFeature,
         HmmscanQueryResult,
         UnexpectedQueryIdFormat,
         )
@@ -37,20 +37,7 @@ from domtblop_utils import (
     )
 
 
-@dataclass
-class Gff3Feature:
-    seqid: str
-    source: str
-    type_: str
-    start: int
-    end: int
-    score: float
-    strand: str
-    phase: int
-    attributes: dict
-
-
-def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[Gff3Feature]:
+def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]:
     """
     Convert a HmmscanQueryResult object to a list of Gff3Feature objects.
     Remember that each query result:
@@ -77,7 +64,7 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[Gff3Feature
         for domain_alignment in domain_hit.domain_alignments:
             for domain_alignment_fragment in domain_alignment.alignment_fragments:
 
-                type_ = "domain_hit"
+                type_ = "hmmscan_hit_alignment"
                 # NOTE: hmmscan tblout seems to be 1-based, so I'll keep it that way
                 start = domain_alignment_fragment.sequence_start_in_parent if domain_alignment_fragment.sequence_start_in_parent else -1
                 end = domain_alignment_fragment.sequence_end_in_parent if domain_alignment_fragment.sequence_end_in_parent else -1
@@ -93,7 +80,7 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[Gff3Feature
                     )
 
                 features.append(
-                    Gff3Feature(
+                    GffFeature(
                         seqid=seqid,
                         source=source,
                         type_=type_,
@@ -109,7 +96,7 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[Gff3Feature
     return features
 
 
-def print_gff3_feature(feature: Gff3Feature) -> None:
+def print_gff3_feature(feature: GffFeature) -> None:
     """
     Print a Gff3Feature object in GFF3 format.
 

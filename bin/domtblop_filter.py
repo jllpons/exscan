@@ -62,6 +62,9 @@ Examples:
       $ domtblop.py filter --min-alignment-length 50 < query_results.json
 """
 
+# TODO: Remove Later
+import pdb
+
 import argparse
 from enum import Enum
 import json
@@ -624,118 +627,80 @@ def run(args: List[str]) -> None:
             )
             sys.exit(1)
 
-        # Here we're applying the filters to whole sequence hit results
-        if config.seq_evalue:
-            filter_query_sequence_level(query_result, config.seq_evalue, QuerySequenceLevelFilter.EVALUE, logger)
-            if config.best_hit:
-                keep_best_domain_hit(query_result, QuerySequenceLevelFilter.EVALUE, logger)
+        try:
+            # Here we're applying the filters to whole sequence hit results
+            if config.seq_evalue:
+                filter_query_sequence_level(query_result, config.seq_evalue, QuerySequenceLevelFilter.EVALUE, logger)
+                if config.best_hit:
+                    keep_best_domain_hit(query_result, QuerySequenceLevelFilter.EVALUE, logger)
 
-        elif config.seq_score:
-            filter_query_sequence_level(query_result, config.seq_score, QuerySequenceLevelFilter.SCORE, logger)
-            if config.best_hit:
-                keep_best_domain_hit(query_result, QuerySequenceLevelFilter.SCORE, logger)
+            elif config.seq_score:
+                filter_query_sequence_level(query_result, config.seq_score, QuerySequenceLevelFilter.SCORE, logger)
+                if config.best_hit:
+                    keep_best_domain_hit(query_result, QuerySequenceLevelFilter.SCORE, logger)
 
-        elif config.seq_bias:
-            filter_query_sequence_level(query_result, config.seq_bias, QuerySequenceLevelFilter.BIAS, logger)
-            if config.best_hit:
-                keep_best_domain_hit(query_result, QuerySequenceLevelFilter.BIAS, logger)
-
-
-        # Here we're applying the filters to domain hits
-        if config.dom_ievalue:
-            filter_domain_hit_level(query_result, config.dom_ievalue, DomainHitLevelFilter.IEVALUE, logger)
-            if config.best_hit:
-                keep_best_domain_alignment(query_result, DomainHitLevelFilter.IEVALUE, logger)
-
-        elif config.dom_cevalue:
-            filter_domain_hit_level(query_result, config.dom_cevalue, DomainHitLevelFilter.CEVALUE, logger)
-            if config.best_hit:
-                keep_best_domain_alignment(query_result, DomainHitLevelFilter.CEVALUE, logger)
-
-        elif config.dom_score:
-            filter_domain_hit_level(query_result, config.dom_score, DomainHitLevelFilter.SCORE, logger)
-            if config.best_hit:
-                keep_best_domain_alignment(query_result, DomainHitLevelFilter.SCORE, logger)
-
-        elif config.dom_bias:
-            filter_domain_hit_level(query_result, config.dom_bias, DomainHitLevelFilter.BIAS, logger)
-            if config.best_hit:
-                keep_best_domain_alignment(query_result, DomainHitLevelFilter.BIAS, logger)
+            elif config.seq_bias:
+                filter_query_sequence_level(query_result, config.seq_bias, QuerySequenceLevelFilter.BIAS, logger)
+                if config.best_hit:
+                    keep_best_domain_hit(query_result, QuerySequenceLevelFilter.BIAS, logger)
 
 
-        # Here we're applying the filters to domain alignments
-        if config.min_alignment_length:
-            filter_domain_alignment_level(query_result, config.min_alignment_length, DomainAlignmentLevelFilter.ALIGNMENT_LENGTH, logger)
+            # Here we're applying the filters to domain hits
+            if config.dom_ievalue:
+                filter_domain_hit_level(query_result, config.dom_ievalue, DomainHitLevelFilter.IEVALUE, logger)
+                if config.best_hit:
+                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.IEVALUE, logger)
+
+            elif config.dom_cevalue:
+                filter_domain_hit_level(query_result, config.dom_cevalue, DomainHitLevelFilter.CEVALUE, logger)
+                if config.best_hit:
+                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.CEVALUE, logger)
+
+            elif config.dom_score:
+                filter_domain_hit_level(query_result, config.dom_score, DomainHitLevelFilter.SCORE, logger)
+                if config.best_hit:
+                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.SCORE, logger)
+
+            elif config.dom_bias:
+                filter_domain_hit_level(query_result, config.dom_bias, DomainHitLevelFilter.BIAS, logger)
+                if config.best_hit:
+                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.BIAS, logger)
 
 
-        # NOTE: Remember the following structure:
-        # query_result: [
-        #           domain_hits: [
-        #               domain_alignments: [
-        #                   alignment_fragments: []
-        #               ]
-        #           ]
-        #       ]
+            # Here we're applying the filters to domain alignments
+            if config.min_alignment_length:
+                filter_domain_alignment_level(query_result, config.min_alignment_length, DomainAlignmentLevelFilter.ALIGNMENT_LENGTH, logger)
+        except QueryResultWithEmptyFields as e:
+            logger.error(e)
+            continue
 
-        # Has any hits after filtering?
-        # query_result.domain_hits = [?]
-        if not has_domain_hits(query_result):
-            # Query result has no domain hits left, do not print it and skip to the next query result
-            # rm(query_result.domain_hits = [])
+        #pdb.set_trace()
+        # NOTE: Remainder that a query result is a nested structure:
+        # A. Each query result has a list of domain hits
+        # B. Each domain hit has a list of domain alignments
+        # C. Each domain alignment has a list of alignment fragments
+
+        # A. Does the query result have any domain hits left after filtering?
+        if not query_result.has_domain_hits():
             logger.warning(
                 "After applying filters, there are no remaining domain hits for the query: "
                 f"{query_result.query_id}"
                 )
+            # Query result has no domain hits left, do not print it and skip to the next query result
             continue
 
-        # Has any domain alignments after filtering?
-        # query_result.domain_hits = [domain_hit1.domain_alignments[?], ...]
-        for domain_hit in query_result.domain_hits:
-            if not has_domain_alignments(domain_hit):
-                # Remove the domain hit if there are no domain alignments left
-                # query_result.domain_hits = [rm(domain_hit1.domain_alignments[]), ...]
-                query_result.domain_hits.remove(domain_hit)
-                logger.warning(
-                    "After applying filters, there are no remaining domain alignments for the query: "
-                    f"{query_result.query_id}"
-                    )
-        # Check again if there are any domain hits left after possible removals
-        # query_result.domain_hits = [?]
-        if not any(query_result.domain_hits):
-            # Query result has no domain hits left, do not print it and skip to the next query result
-            # rm(query_result.domain_hits = [])
+        # B. Does the domain hit have any domain alignments left after filtering?
+        if not any([dh.has_domain_alignments() for dh in query_result.domain_hits]):
             logger.warning(
-                "After applying filters, there are no remaining domain hits for the query: "
+                "After applying filters, there are no remaining domain alignments for the query: "
                 f"{query_result.query_id}"
                 )
             continue
 
-
-        # Has any alignment fragments after filtering?
-        # query_result.domain_hits = [domain_hit1.domain_alignments[domain_alignment1.alignment_fragments[?], ...], ...]
-        for domain_hit in query_result.domain_hits:
-            for domain_alignment in domain_hit.domain_alignments:
-                if not has_alignment_fragments(domain_alignment):
-                    # Remove the domain alignment if there are no alignment fragments left
-                    # query_result.domain_hits = [domain_hit1.domain_alignments[rm(domain_alignment1.alignment_fragments[]), ...], ...]
-                    domain_hit.domain_alignments.remove(domain_alignment)
-                    logger.warning(
-                        "After applying filters, there are no remaining domain alignment fragments for the query: "
-                        f"{query_result.query_id}"
-                        )
-            if not has_domain_alignments(domain_hit):
-                # Remove the domain hit if there are no domain alignments left
-                # query_result.domain_hits = [rm(domain_hit1.domain_alignments[]), ...]
-                query_result.domain_hits.remove(domain_hit)
-                logger.warning(
-                    "After applying filters, there are no remaining domain alignments for the query: "
-                    f"{query_result.query_id}"
-                    )
-        if not any(query_result.domain_hits):
-            # Query result has no domain hits left, do not print it and skip to the next query result
-            # rm(query_result.domain_hits = [])
+        # C. Does the domain alignment have any alignment fragments left after filtering?
+        if not any([da.has_domain_alignment_fragments() for dh in query_result.domain_hits for da in dh.domain_alignments]):
             logger.warning(
-                "After applying filters, there are no remaining domain hits for the query: "
+                "After applying filters, there are no remaining domain alignment fragments for the query: "
                 f"{query_result.query_id}"
                 )
             continue

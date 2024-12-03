@@ -6,26 +6,26 @@ domtblop: Perform operations on query results from a hmmscan domtblout files.
 Usage: domtblop.py <operation> [options]
 
     Parsing and Serialization:
-        parser   Parse and serialize hmmscan domtblout query results into JSON structs
+        parser          Parse and serialize hmmscan domtblout query results into JSON structs
 
     Operations on Serialized Domtblout Query Results:
-        filter     Apply filters to serialized structs (e.g. E-value, score)
-        group      Group domain hits found within a certain distance of each other.
-        gffcmp     Compare domain hits or groups to a GFF file.
-        bamcmp     Compare domain hits or groups to a BAM file.
-        togff      Convert serialized domain hits or groups to GFF format.
-        tobed      Convert serialized domain hits or groups to BED format.
-        tocsv      Convert serialized domain hits or groups to CSV format.
-        tofasta    Extract sequences from a FASTA file based on domain hits or groups.
+        filter          Apply filters to serialized structs (e.g. E-value, score)
+        group           Group domain hits found within a certain distance of each other.
+        gffintersect    Parse bedtools intersect output and add the intersecting features to the serialized query results.
+        bamcmp          Compare domain hits or groups to a BAM file.
+        togff           Convert serialized domain hits or groups to GFF format.
+        tobed           Convert serialized domain hits or groups to BED format.
+        tocsv           Convert serialized domain hits or groups to CSV format.
+        tofasta         Extract sequences from a FASTA file based on domain hits or groups.
 
     Utilities:
-        addseq     Add the amino acid sequence to each query result.
-        dummy      Print some serialized dummy query results for testing purposes.
-        plot       Generate some plots in `$PWD/plots/` directory.
-        help       Show this help message and exit.
+        addseq          Add the dna/rna/protein sequence to each query result.
+        dummy           Print some serialized dummy query results for testing purposes.
+        plot            Generate some plots in `$PWD/plots/` directory.
+        help            Show this help message and exit.
 
 Options:
-    -h, --help   Show this help message and exit.
+    -h, --help          Show this help message and exit.
 """
 
 
@@ -57,6 +57,10 @@ def main():
 
     elif cmd == "group":
         from domtblop_group import run
+        run(sys.argv[2:])
+
+    elif cmd == "gffintersect":
+        from domtblop_gffintersect import run
         run(sys.argv[2:])
 
     elif cmd == "togff":

@@ -63,6 +63,9 @@ def read_input(file_path: str) -> TextIO:
 
     if file_path == "-":
         return sys.stdin
+    elif file_path.startswith("/dev/fd/"):
+        fd = int(os.path.basename(file_path))
+        return os.fdopen(fd, "r")
     else:
         if not os.path.isfile(file_path):
             logger.error(f"File not found: {file_path}")

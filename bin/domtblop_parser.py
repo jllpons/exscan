@@ -69,6 +69,133 @@ class ParentSequence:
 
 
 @dataclass
+class GffFeature:
+    """
+    Represents a GFF feature that intersects with a domain alignment fragment.
+
+    Attributes:
+        seqid (str): Sequence identifier.
+        source (str): Source of the feature.
+        type_ (str): Type of the feature.
+        start (int): Start position of the feature.
+        end (int): End position of the feature.
+        score (float | str): Score of the feature.
+        strand (str): Strand of the feature.
+        phase (int | str): Phase of the feature.
+        attributes (Dict[str, str]): Additional attributes of the feature
+    """
+    seqid: str
+    source: str
+    type_: str
+    start: int
+    end: int
+    score: float | str
+    strand: str
+    phase: int | str
+    attributes: Dict[str, str]
+
+
+    def to_json(self) -> Dict:
+        """
+        Serialize the GFF feature into a JSON struct.
+
+        Returns:
+            Dict: JSON struct of the GFF feature.
+        """
+        return {
+            "seqid": self.seqid,
+            "source": self.source,
+            "type": self.type_,
+            "start": self.start,
+            "end": self.end,
+            "score": self.score,
+            "strand": self.strand,
+            "phase": self.phase,
+            "attributes": self.attributes
+        }
+
+
+    @classmethod
+    def from_json(cls, json_data: Dict) -> "GffFeature":
+        """
+        Deserialize a JSON struct into a GffIntersectingFeature.
+
+        Args:
+            json_data (Dict): JSON string to deserialize.
+
+        Returns:
+            GffIntersectingFeature: Deserialized GffIntersectingFeature.
+
+        Raises:
+            KeyError: If a required key is missing in the JSON struct.
+        """
+
+        try:
+            seqid = json_data["seqid"]
+            source = json_data["source"]
+            type_ = json_data["type"]
+            start = json_data["start"]
+            end = json_data["end"]
+            score = json_data["score"]
+            strand = json_data["strand"]
+            phase = json_data["phase"]
+            attributes = json_data["attributes"]
+
+        except KeyError as e:
+            raise KeyError(f"Missing key: {e}")
+
+        feature = cls(
+            seqid=seqid,
+            source=source,
+            type_=type_,
+            start=start,
+            end=end,
+            score=score,
+            strand=strand,
+            phase=phase,
+            attributes=attributes
+        )
+
+        return feature
+
+
+    @classmethod
+    def from_gff3(cls, line: str) -> "GffFeature":
+        """
+        Create a Gff3Feature instance from a GFF3 line.
+
+        Args:
+            line (str): A GFF3 line.
+
+        Returns:
+            Gff3Feature: A Gff3Feature instance.
+        """
+
+        def _parse_attributes(attributes: str) -> dict:
+            fields = attributes.split(";")
+            return {
+                field.split("=")[0]: '='.join(field.split("=")[1:])
+                for field in fields
+                if field
+            }
+
+        fields = line.strip().split("\t")
+        attributes = _parse_attributes(fields[8])
+
+        return cls(
+            seqid=fields[0],
+            source=fields[1],
+            type_=fields[2],
+            start=int(fields[3]),
+            end=int(fields[4]),
+            score=float(fields[5]) if fields[5] != "." else ".",
+            strand=fields[6],
+            phase=int(fields[7]) if fields[7] != "." else ".",
+            attributes=attributes,
+        )
+
+
+@dataclass
 class DomainAlignmentFragment:
     """
     Represents a fragment of a domain alignment from hmmscan results.
@@ -250,6 +377,16 @@ class HmmscanDomainAlignment:
         return domain_alignment
 
 
+    def has_domain_alignment_fragments(self) -> bool:
+        """
+        Check if the domain alignment has fragments.
+
+        Returns:
+            bool: True if the domain alignment has fragments, False otherwise.
+        """
+        return any(self.alignment_fragments)
+
+
 @dataclass
 class HmmscanDomainHit:
     """
@@ -328,6 +465,16 @@ Represents a domain hit from an hmmscan result.
         )
 
         return hit
+
+
+    def has_domain_alignments(self) -> bool:
+        """
+        Check if the domain hit has alignments.
+
+        Returns:
+            bool: True if the domain hit has alignments, False otherwise.
+        """
+        return any(self.domain_alignments)
 
 
 @dataclass
@@ -424,6 +571,7 @@ class HmmscanQueryResult:
     domain_hits: List[HmmscanDomainHit] = field(default_factory=list)
 
     group: None | GroupedQueryResults = None
+    gff_intersecting_features: None | List[GffFeature] = None
 
     def __post_init__(self):
         """
@@ -502,6 +650,7 @@ class HmmscanQueryResult:
                     "frame": self.parent_sequence.frame,
                 },
                 "domain_hits": [i.to_json() for i in self.domain_hits],
+                "gff_intersecting_features": [i.to_json() for i in self.gff_intersecting_features] if self.gff_intersecting_features else None,
                 "group": self.group.to_json() if self.group else None
         }
 
@@ -540,6 +689,7 @@ class HmmscanQueryResult:
             aminoacid_sequence = json_data["aminoacid_sequence"]
             nucleotide_sequence = json_data["nucleotide_sequence"]
             domain_hits = json_data["domain_hits"]
+            gf_intersecting_features = json_data["gff_intersecting_features"]
             group = json_data["group"]
 
         except KeyError as e:
@@ -550,10 +700,21 @@ class HmmscanQueryResult:
             aminoacid_sequence=aminoacid_sequence,
             nucleotide_sequence=nucleotide_sequence,
             domain_hits=[HmmscanDomainHit.from_json(i) for i in domain_hits],
+            gff_intersecting_features=[GffFeature.from_json(i) for i in gf_intersecting_features] if gf_intersecting_features else None,
             group=GroupedQueryResults.from_json(group) if group else None
             )
 
         return query_result
+
+
+    def has_domain_hits(self) -> bool:
+        """
+        Check if the query result has domain hits.
+
+        Returns:
+            bool: True if the query result has domain hits, False otherwise.
+        """
+        return any(self.domain_hits)
 
 
     def compute_domain_aligment_fragment_absolut_positions(self) -> None:

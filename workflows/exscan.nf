@@ -43,7 +43,7 @@ workflow EXSCAN {
     ch_fasta = Channel.fromPath(fasta)
 
 
-    if (fasta_type == 'dna' || fasta_type == 'rna') {
+    if (fasta_type == 'dna') {
         // DESC: Translate all 6 ORFs of a nucleotide fasta file.
         //       A fasta file containing the translated ORFs is returned.
         //       One fasta entry = whatever translated sequence bewteen two stop codons.
@@ -58,10 +58,24 @@ workflow EXSCAN {
         // After each process, software versions are collected
         ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
         ch_fasta_translated = SEQKIT_TRANSLATE.out.fasta_translated
-    } else {
+    } else if (fasta_type == 'rna') {
+        SEQKIT_TRANSLATE(
+            fasta      = ch_fasta,
+            fasta_type = fasta_type
+        )
+        ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
         // DESC: If the fasta file is already translated, then we can skip the translation step.
         //       Still, we need to mock the metadata that seqkit-translate would have appended
         //       to the fasta headers.
+        // ARGS: fasta (str)                   - path to nucleotide fasta file
+        // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
+        //       ch_versions (channel)         - channel containing path to versions.yml
+        GAWK_HEADER_METADATA(
+            fasta = SEQKIT_TRANSLATE.out.fasta_translated
+        )
+        ch_versions = ch_versions.mix(GAWK_HEADER_METADATA.out.versions)
+        ch_fasta_translated = GAWK_HEADER_METADATA.out.fasta_translated
+    } else {
         GAWK_HEADER_METADATA(
             fasta = ch_fasta
         )

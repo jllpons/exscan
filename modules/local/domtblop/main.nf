@@ -107,7 +107,7 @@ process DOMTBLOP_GROUP {
         'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
         'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
 
-    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*grouped.json"
+    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*group.json"
 
     input:
     path in_qresults_serialized
