@@ -141,6 +141,9 @@ class GffFeature:
             phase = json_data["phase"]
             attributes = json_data["attributes"]
 
+            if seqid.startswith('"') and seqid.endswith('"'):
+                seqid = seqid[1:-1]
+
         except KeyError as e:
             raise KeyError(f"Missing key: {e}")
 
@@ -174,7 +177,7 @@ class GffFeature:
         def _parse_attributes(attributes: str) -> dict:
             fields = attributes.split(";")
             return {
-                field.split("=")[0]: '='.join(field.split("=")[1:])
+                field.split("=")[0].replace('"', ''): '='.join(field.split("=")[1:])
                 for field in fields
                 if field
             }
@@ -193,6 +196,58 @@ class GffFeature:
             phase=int(fields[7]) if fields[7] != "." else ".",
             attributes=attributes,
         )
+
+
+    def to_gff3(self) -> str:
+        """
+        Serialize the GFF feature into a GFF3 line.
+
+        Returns:
+            str: GFF3 line of the GFF feature.
+        """
+        attributes = ";".join(
+            f"{k}={v}" for k, v in self.attributes.items()
+        )
+
+        return "\t".join(
+            [
+                self.seqid,
+                self.source,
+                self.type_,
+                str(self.start),
+                str(self.end),
+                str(self.score),
+                self.strand,
+                str(self.phase),
+                attributes,
+            ]
+        )
+
+
+def print_gff3_feature(feature: GffFeature) -> None:
+    """
+    Print a Gff3Feature object in GFF3 format.
+
+    Args:
+        feature (Gff3Feature): A Gff3Feature object.
+    """
+    print(
+        "\t".join(
+            [
+                feature.seqid,
+                feature.source,
+                feature.type_,
+                str(feature.start),
+                str(feature.end),
+                str(feature.score),
+                feature.strand,
+                str(feature.phase),
+                ";".join(
+                    f"{k}={v}" for k, v in feature.attributes.items()
+                ),
+            ]
+        )
+    )
 
 
 @dataclass

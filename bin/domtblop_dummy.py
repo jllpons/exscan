@@ -23,12 +23,12 @@ from domtblop_utils import (
     )
 from domtblop_parser import (
         CustomEncoder,
+        GffFeature,
+        GroupedQueryResults,
+        DomainAlignmentFragment,
         HmmscanQueryResult,
         HmmscanDomainHit,
         HmmscanDomainAlignment,
-        DomainAlignmentFragment,
-        GroupedQueryResults,
-        UnexpectedQueryIdFormat
         )
 
 
@@ -177,6 +177,41 @@ def build_dummy_hit() -> HmmscanQueryResult:
                             ),
                         ],
                     ),
+                ],
+                gff_intersecting_features=[
+                    GffFeature(
+                        seqid="myFavoriteGene",
+                        source="trustMeBro",
+                        type_="gene",
+                        start=1,
+                        end=600,
+                        score=".",
+                        strand="+",
+                        phase=".",
+                        attributes={"ID": "TheActualGene", "Name": "TheActualGene"}
+                        ),
+                    GffFeature(
+                        seqid="myFavoriteGene",
+                        source="trustMeBro",
+                        type_="CDS",
+                        start=4,
+                        end=106,
+                        score=".",
+                        strand="+",
+                        phase=".",
+                        attributes={"ID": "TheActualGene.CDS.1", "Parent": "TheActualGene"}
+                        ),
+                    GffFeature(
+                        seqid="myFavoriteGene",
+                        source="trustMeBro",
+                        type_="CDS",
+                        start=110,
+                        end=206,
+                        score=".",
+                        strand="+",
+                        phase=".",
+                        attributes={"ID": "TheActualGene.CDS.2", "Parent": "TheActualGene"}
+                        )
                 ],
                 group=GroupedQueryResults(
                     group_id="1..100",

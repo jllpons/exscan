@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Write serialized query results to stdout in GFF format.
+Write the profile HMM alignments from each serialized query result to stdout in GFF format.
 
 Usage:
     domtblop.py togff [options] <serialized_domtblout>
@@ -12,8 +12,15 @@ Arguments:
                                     Use "-" to read from stdin. (default: "-")
 
 Options:
+    --intersecting-features         Output the intersecting of each query result instead
     -h, --help                      Show this help message and exit
     -l, --loglevel STR              Set the logging level [default: INFO]
+
+Examples:
+    $ domtblop.py togff domtblout.json > domtblout.gff3
+
+    the gff features look like this:
+seq1    domtblop.py     hmmscan_hit_alignment    1       100     1e-07     +       .       ID="query_id";DomainName="PF00001"
 """
 
 import argparse
@@ -96,30 +103,33 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
     return features
 
 
-def print_gff3_feature(feature: GffFeature) -> None:
+def gff3_from_query_result_intersecting(query_result: HmmscanQueryResult) -> List[GffFeature]:
     """
-    Print a Gff3Feature object in GFF3 format.
+    """
+    features = []
 
-    Args:
-        feature (Gff3Feature): A Gff3Feature object.
-    """
-    print(
-        "\t".join(
-            [
-                feature.seqid,
-                feature.source,
-                feature.type_,
-                str(feature.start),
-                str(feature.end),
-                str(feature.score),
-                feature.strand,
-                str(feature.phase),
-                ";".join(
-                    f"{k}={v}" for k, v in feature.attributes.items()
-                ),
-            ]
-        )
-    )
+    if not query_result.gff_intersecting_features:
+        return features
+
+    for intersecting_gff in query_result.gff_intersecting_features:
+
+        features.append(
+            GffFeature(
+                seqid=intersecting_gff.seqid,
+                source=intersecting_gff.source,
+                type_=intersecting_gff.type_,
+                start=intersecting_gff.start,
+                end=intersecting_gff.end,
+                score=intersecting_gff.score,
+                strand=intersecting_gff.strand,
+                phase=intersecting_gff.phase,
+                attributes=intersecting_gff.attributes,
+                )
+            )
+
+
+    return features
+
 
 
 def setup_argparse() -> argparse.ArgumentParser:
@@ -144,6 +154,12 @@ def setup_argparse() -> argparse.ArgumentParser:
         )
 
     # Optional arguments
+    parser.add_argument(
+        "--intersecting-features",
+        action="store_true",
+        default=False,
+        help="Output the intersecting of each query result instead",
+    )
     parser.add_argument(
         "-l", "--loglevel",
         type=str,
@@ -222,16 +238,21 @@ def run(args: List[str]) -> None:
             sys.exit(1)
 
         # TODO: Handle groups?
-
         try:
-            features = gff3_from_query_result(query_result)
+
+            if config.intersecting_features:
+                features = gff3_from_query_result_intersecting(query_result)
+
+            else:
+                features = gff3_from_query_result(query_result)
+
         except ValueError as e:
             logger.error(f"Error processing query result: {e}")
             sys.exit(1)
 
         for feature in features:
             try:
-                print_gff3_feature(feature)
+                print(feature.to_gff3())
 
             except BrokenPipeError:
                 devnull = os.open(os.devnull, os.O_WRONLY)

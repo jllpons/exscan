@@ -11,7 +11,7 @@ Usage: domtblop.py <operation> [options]
     Operations on Serialized Domtblout Query Results:
         filter          Apply filters to serialized structs (e.g. E-value, score)
         group           Group domain hits found within a certain distance of each other.
-        gffintersect    Parse bedtools intersect output and add the intersecting features to the serialized query results.
+        gffintersect    Merge bedtools intersect output with serialized query results.
         bamcmp          Compare domain hits or groups to a BAM file.
         togff           Convert serialized domain hits or groups to GFF format.
         tobed           Convert serialized domain hits or groups to BED format.

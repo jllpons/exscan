@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 r"""
-Parse the output of bedtools intersect and add the intersecting features information
-to the correspoding serialized query result.
+Merge bedtools intersect output with serialized query results.
 
 Usage:
     domtblop.py gffintersect [options] <serialized_domtblout> <bedtools_intersect_output>
