@@ -29,13 +29,13 @@ performs the following steps:
 You can run the pipeline using:
 
 ```bash
-nextflow run main.nf --fasta sequences.fasta --hmmdb hmmdb.hmm --gff annotation.gff
+nextflow run main.nf --fasta sequences.fasta --hmmdb hmmdb.hmm
 ```
 
-Or alternativly:
+Or alternatively:
 
 ```bash
-nextflow run main.nf -params-file test/params.yaml
+nextflow run main.nf -params-file param_files/params.yaml
 ```
 
 > [!WARNING]
