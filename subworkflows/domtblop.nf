@@ -1,7 +1,9 @@
 include { BEDTOOLS_GETFASTA                       } from '../modules/local/bedtools'
+include { BEDTOOLS_INTERSECT                      } from '../modules/local/bedtools'
 include { DOMTBLOP_ADDSEQ                         } from '../modules/local/domtblop'
 include { DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE       } from '../modules/local/domtblop'
 include { DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH } from '../modules/local/domtblop'
+include { DOMTBLOP_GFFINTERSECT                   } from '../modules/local/domtblop'
 include { DOMTBLOP_GROUP                          } from '../modules/local/domtblop'
 include { DOMTBLOP_PARSER                         } from '../modules/local/domtblop'
 include { DOMTBLOP_TOBED                          } from '../modules/local/domtblop'
@@ -100,9 +102,9 @@ workflow DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW {
 
 
     // DESC: Add nucleotide sequences to the serialized JSON file
-    // ARGS: qresults_serialized (channel) - Channel containing path to serialized JSON file
-    //       fasta (channel)               - Channel containing path to file containing all sequences
-    //       type (str)                    - Type of sequence to add
+    // ARGS: qresults_serialized (channel)    - Channel containing path to serialized JSON file
+    //       fasta (channel)                  - Channel containing path to file containing all sequences
+    //       type (str)                       - Type of sequence to add
     // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_ADDSEQ(
@@ -120,6 +122,49 @@ workflow DOMTBLOP_ADD_NUCLEOTIDESEQ_WORKFLOW {
 }
 
 
+workflow DOMTBLOP_INTERSECT_WORKFLOW {
+
+    take:
+    ch_qresults_serialized // channel : [ path(qresults.json) ]
+    ch_qresults_gff        // channel : [ path(qresults.gff) ]
+    ch_gff_intersect       // channel : [ path(path/to/intersect.gff || path/to/*.gff) ]
+
+    main:
+
+    ch_gff_intersect = Channel.fromPath(ch_gff_intersect)
+
+    // DESC: Find intersecting features when comparing query results profile alignments
+    //       in GFF format with the intersecting features in the GFF file(s)
+    // ARGS: gff_a (channel)                 - Channel containing path to query results profile alignments in GFF format
+    //       gff_b (channel)                 - Channel containing path to GFF file(s)
+    // RETS: ch_bedtools_intersect (channel) - Channel containing path to intersecting features in GFF format
+    //       ch_versions (channel)           - Channel containing path to versions.yml
+    BEDTOOLS_INTERSECT(
+        gff_a = ch_qresults_gff,
+        gff_b = ch_gff_intersect,
+    )
+    ch_versions = BEDTOOLS_INTERSECT.out.versions
+
+    // DESC: Find intersecting features when comparing query results profile alignments
+    //       in GFF format with the intersecting features in the GFF file(s)
+    //       If intersecting features are found, the intersecting feature information
+    //       is added to the serialized query results JSON file
+    // ARGS: qresults_serialized (channel) - Channel containing path to serialized JSON file
+    //       bedtools_intersect (channel)  - Channel containing path to intersecting features in GFF format
+    // RETS: qresults_serialized (channel) - Channel containing path to serialized JSON file with intersecting features
+    //       ch_versions (channel)         - Channel containing path to versions.yml
+    DOMTBLOP_GFFINTERSECT(
+        qresults_serialized = ch_qresults_serialized,
+        gff_intersect = BEDTOOLS_INTERSECT.out.bedtools_intersect,
+    )
+    ch_versions = ch_versions.mix(DOMTBLOP_GFFINTERSECT.out.versions)
+
+    emit:
+    qresults_serialized = DOMTBLOP_GFFINTERSECT.out.qresults_serialized
+    versions = ch_versions
+}
+
+
 // This is the defalut steps where domtblop.py is used on query results table.
 // The following operations are performed in the following order:
 //     1. Parse and seralize the results of each query to JSON
@@ -133,6 +178,7 @@ workflow DOMTBLOP_DEFAULT {
     ch_hmmscan_domtblout  // channel : [ path(path/to/domtblout) ]
     domain_ievalue        // str     : E-value threshold for domain filtering
     fasta_type            // str     : Type of fasta file (dna, rna, protein)
+    gff_intersect         // str     : path(path/to/intersect.gff || path/to/*.gff)
     min_alignment_len     // int     : Minimum length of alignment
     group                 // int     : Hit maximum grouping distance
     ch_versions           // channel : [ path(versions.yml) ]
@@ -226,6 +272,26 @@ workflow DOMTBLOP_DEFAULT {
     ch_versions = ch_versions.mix(DOMTBLOP_TOGFF.out.versions)
 
 
+    if (gff_intersect != null) {
+        // DESC: Find intersecting features when comparing query results profile alignments
+        //       in GFF format with the intersecting features in the GFF file(s)
+        // ARGS: qresults_serialized (channel) - Channel containing path to serialized JSON file
+        //       gff_intersect (channel)       - Channel containing path to GFF file(s)
+        // RETS: qresults_serialized (channel) - Channel containing path to serialized JSON file with intersecting features
+        //       ch_versions (channel)         - Channel containing path to versions.yml
+        DOMTBLOP_INTERSECT_WORKFLOW(
+            ch_qresults_serialized = DOMTBLOP_GROUP.out.qresults_serialized,
+            ch_qresults_gff = DOMTBLOP_TOGFF.out.qresults_gff,
+            ch_gff_intersect = gff_intersect,
+        )
+        ch_qresults_serialized = DOMTBLOP_INTERSECT_WORKFLOW.out.qresults_serialized
+        ch_versions = ch_versions.mix(DOMTBLOP_INTERSECT_WORKFLOW.out.versions)
+    } else {
+        ch_qresults_serialized = DOMTBLOP_GROUP.out.qresults_serialized
+    }
+
+
+
     // DESC: Convert domain aligments from serialized JSON to FASTA format
     //       Writes: i) FASTA file containing nucleotide sequences
     //               ii) FASTA file containing amino acid sequences
@@ -234,7 +300,7 @@ workflow DOMTBLOP_DEFAULT {
     // RETS: ch_fasta (channel)               - Channel containing path to FASTA files
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_TOFASTA(
-        DOMTBLOP_GROUP.out.qresults_serialized,
+        ch_qresults_serialized = ch_qresults_serialized,
     )
     ch_versions = ch_versions.mix(DOMTBLOP_TOFASTA.out.versions)
 

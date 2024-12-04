@@ -34,6 +34,7 @@ workflow EXSCAN {
     hmmdb_dir
     domain_ievalue
     fasta_type
+    gff_intersect
     group_distance
     min_alignment_len
     ch_versions
@@ -129,6 +130,7 @@ workflow EXSCAN {
     //       ch_hmmscan_domtblout (channel)    - cannel containing path to hmmscan domtblout file
     //       domain_ievalue (float)            - evalue threshold for domain hits
     //       fasta_type (str)                  - type of fasta file (dna, rna, or protein)
+    //       gff_intersect (str)               - path to gff file(s) to intersect with hmmscan results
     //       min_alignment_len (int)           - minimum length of alignment
     //       group (int)                       - distance in bp under which two hmmscan hits are grouped
     //       ch_versions (channel)             - channel containing path to versions.yml
@@ -139,6 +141,7 @@ workflow EXSCAN {
         ch_hmmscan_domtblout = MERGE_DOMTBLOUT_RESULTS.out.hmmscan_merged_domtblout,
         domain_ievalue       = domain_ievalue,
         fasta_type           = fasta_type,
+        gff_intersect        = gff_intersect,
         min_alignment_len    = min_alignment_len,
         group_distance       = group_distance,
         ch_versions          = ch_versions

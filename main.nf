@@ -20,9 +20,13 @@ Alternative to Required Arguments:
 
 Optional Arguments:
     --dom_ieval <val>         : Domain alignment individual e-value filter [default: ${params.dom_ieval}]
-                                Domain alignments with **EQUAL OR LESS** than this e-value will be kept
+                                Domain alignments with **equal or less** than this e-value will be kept
     --fasta_type <val>        : Type of sequences found in input `--fasta` file.
                                 Choices: {dna, rna, protein} [defalut: $params.fasta_type]
+    --gff_intersect <gff>     : If provided, any feature in the GFF file(s) that intersects
+                                with a domain alignment will be retained. Multiple GFF files
+                                can be provided using a wildcard like 'path/to/*.gff'.
+                                The information about each intersecting feature will be kept.
     --group_distance <val>    : Group query results within n bps [default: ${params.group_distance}]
     --min_alignment_len <val> : Domain alignment minimum lenght filter [default: ${params.min_alignment_len}]
                                 Domain alignments with **EQUAL OR MORE** than this distance will be
@@ -39,6 +43,7 @@ fasta             : ${params.fasta}
 hmmdb             : ${params.hmmdb}
 dom_ieval         : ${params.dom_ieval}
 fasta_type        : ${params.fasta_type}
+gff_intersect     : ${params.gff_intersect}
 group_distance    : ${params.group_distance}
 min_alignment_len : ${params.min_alignment_len}
 outdir            : ${params.outdir}
@@ -146,8 +151,14 @@ def dumpPipelineInfo() {
         newLine: true
     )
 
-
-    echo ${JsonOutput.toJson(params)} > "${params.outdir}/pipeline_info/params.json"
+    // Store input parameters as JSON
+    ch_params = Channel.from(params)
+    ch_params.collectFile(
+        storeDir: "${params.outdir}/pipeline_info/",
+        name: 'params.json',
+        sort: true,
+        newLine: true
+    )
 }
 
 
@@ -207,6 +218,7 @@ workflow {
         params.hmmdb_dir,
         params.dom_ieval,
         params.fasta_type,
+        params.gff_intersect,
         params.group_distance,
         params.min_alignment_len,
         ch_versions
