@@ -1,21 +1,41 @@
 # exscan
 
+> [!IMPORTANT]
+> This project is still under development.
+> After first release, a license and Zenodo DOI will be added.
+
 ## Introduction
 
-`exscan` is bioinformatics pipeline for the exploration and annotation of exons
-and their specific features. It takes a nucleotide `fasta` file to extract all
-of the open reading frames (ORFs), uses profile hidden Markov models (hmm) to detect exons displaying specific domains and finally filters the results based on specific criteria.
+**`exscan`** is a bioinformatics pipeline designed to scan biological sequences
+for specific exons using profile hidden Markov models (HMMs). The pipeline
+facilitates the identification and analysis of exonic regions, with a focus on
+aiding in genomic annotation and comparative genomics studies.
+
+The pipeline is implemented using [Nextflow](https://www.nextflow.io), and
+performs the following steps:
 
 1. Translate all ORFs of a nucleotide sequence ([`seqkit2`](< https://doi.org/10.1002/imt2.191>)).
 2. Query each ORFs against a profile HMM database ([`hmmscan`](<http://hmmer.org/>))
-3. Perform different operations on each query results. ([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>), [`jq`](<https://jqlang.github.io/jq/>), [`bedtools`](<https://bedtools.readthedocs.io/en/latest/>)).
+3. Perform different operations on each query result. ([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>), [`jq`](<https://jqlang.github.io/jq/>), [`bedtools`](<https://bedtools.readthedocs.io/en/latest/>)). Operations include:
+    - Filtering the results by e-value, score, and coverage.
+    - Selecting the best hit for each ORF.
+    - Comparing hits with a GFF file to retrain the features intersecting with
+      the hits.
+    - Generating FASTA files contaning sequences of hits, corresponding ORFs,
+      or the original sequence.
 
 ## Usage
 
 You can run the pipeline using:
 
 ```bash
-nextflow run main.nf
+nextflow run main.nf --fasta sequences.fasta --hmmdb hmmdb.hmm --gff annotation.gff
+```
+
+Or alternativly:
+
+```bash
+nextflow run main.nf -params-file test/params.yaml
 ```
 
 > [!WARNING]
@@ -31,10 +51,21 @@ For more details about the output files and reports, please refer to the
 
 ## Credits
 
-`exscan.nf` was originally written by [Joan LLuis Pons Ramon](<mail>)
+`exscan.nf` was originally written by [Joan LLuis Pons Ramon](<mail>) at the
+[Station Biologique de Roscoff](<https://www.sb-roscoff.fr/en/team-algal-genetics>).
 
 We thank the following people for their extensive assistance in the development of this pipeline:
+- #TODO
 
-#TODO
-EU funding?
+This work was supported by the HORIZON–MSCA-2022-DN program of the European Commission under the Grant Agreement No 101120280.
 
+## License
+
+Still to be decided.
+
+## References
+
+1. Wei Shen, Botond Sipos, and Liuyang Zhao, “SeqKit2: A Swiss Army Knife for Sequence and Alignment Processing,” Imeta 3, no. 3 (June 2024): e191, https://doi.org/10.1002/imt2.191.
+2. Sean R. Eddy, “Accelerated Profile HMM Searches,” ed. William R. Pearson, Plos Computational Biology 7, no. 10 (October 2011): e1002195, https://doi.org/10.1371/journal.pcbi.1002195.
+3. Peter J. A. Cock et al., “Biopython: Freely Available Python Tools for Computational Molecular Biology and Bioinformatics,” Bioinformatics 25, no. 11 (June 2009): 1422–23, https://doi.org/10.1093/bioinformatics/btp163.
+4. Aaron R. Quinlan and Ira M. Hall, “BEDTools: A Flexible Suite of Utilities for Comparing Genomic Features,” Bioinformatics 26, no. 6 (March 2010): 841–42, https://doi.org/10.1093/bioinformatics/btq033.
