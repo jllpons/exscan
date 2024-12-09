@@ -65,7 +65,6 @@ class BedtoolsIntersectOutputRow:
     """
 
     a: GffFeature
-    filename_b: str
     b: GffFeature
 
 
@@ -82,11 +81,9 @@ class BedtoolsIntersectOutputRow:
         """
         fields = line.strip().split("\t")
         gff_a = fields[0:9]
-        filename_b = fields[9]
-        gff_b = fields[10:]
+        gff_b = fields[9:]
         return cls(
             a=GffFeature.from_gff3("\t".join(gff_a)),
-            filename_b=filename_b,
             b=GffFeature.from_gff3("\t".join(gff_b)),
         )
 

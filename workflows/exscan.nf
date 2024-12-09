@@ -1,8 +1,3 @@
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT LOCAL MODULES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 
 include { GAWK_HEADER_METADATA    } from '../modules/local/gawk'
 include { HMMSCAN                 } from '../modules/local/hmmscan'
@@ -12,32 +7,21 @@ include { SEQKIT_GREP             } from '../modules/local/seqkit'
 include { SEQKIT_SPLIT            } from '../modules/local/seqkit'
 include { SEQKIT_TRANSLATE        } from '../modules/local/seqkit'
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
 include { DOMTBLOP_DEFAULT } from '../subworkflows/domtblop'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 
 workflow EXSCAN {
 
     take:
-    fasta
-    hmmdb_file
-    hmmdb_dir
-    domain_ievalue
-    fasta_type
-    gff_intersect
-    group_distance
-    min_alignment_len
-    ch_versions
+    domain_ieval        // (float) - evalue threshold for domain hits
+    fasta               // (str) - path to nucleotide fasta file
+    fasta_type          // (str) - type of fasta file (dna, rna, or protein)
+    gff_intersect       // (str) - path to gff file to intersect with hmmscan results
+    group_distance      // (int) - distance in bp under which two hmmscan hits are grouped
+    hmmdb_dir           // (str) - path to HMM database directory
+    hmmdb_file          // (str) - Name of HMM database file
+    keep_only_intersect // (bool) - keep only hmmscan hits that intersect with features in gff_intersect
+    min_alignment_len   // (int) - minimum length of alignment
+    ch_versions         // (channel) - channel containing path to versions.yml
 
     main:
 
@@ -103,9 +87,9 @@ workflow EXSCAN {
     //       ch_fasta_translated (channel)  - channel containing path to a structured ORF file
     // RETS: ch_hmmscan_domtblout (channel) - path to hmmscan domtblout file
     HMMSCAN(
-        hmmdb_file          = hmmdb_file,
-        hmmdb_dir           = hmmdb_dir,
-        ch_fasta_translated = SEQKIT_SPLIT.out.fasta_split.flatten()
+        hmmdb_file  = hmmdb_file,
+        hmmdb_dir   = hmmdb_dir,
+        fasta       = SEQKIT_SPLIT.out.fasta_split.flatten()
     )
     ch_versions = ch_versions.mix(HMMSCAN.out.versions)
 
@@ -115,10 +99,10 @@ workflow EXSCAN {
         .collect()
         .set { ch_hmmscan_domtblout_results }
     // DESC: Large fasta_translated files are split into multiple files,
-    //       so hmmscan can be run in parallel. This process will merge
-    //       the results back into a single file.
+    //       so hmmscan can be run in parallel.
+    //       This process will merge the results back into a single file.
     // ARGS: HMMSCAN.out.hmmscan_domtblout (channel) - channel containing path to hmmscan domtblout file
-    // RETS: ch_hmmscan_merged_domtblout (channel)  - channel containing path to merged hmmscan domtblout file
+    // RETS: ch_hmmscan_merged_domtblout (channel)   - channel containing path to merged hmmscan domtblout file
     MERGE_DOMTBLOUT_RESULTS(
         ch_hmmscan_domtblout = ch_hmmscan_domtblout_results
     )
@@ -130,7 +114,8 @@ workflow EXSCAN {
     //       ch_hmmscan_domtblout (channel)    - cannel containing path to hmmscan domtblout file
     //       domain_ievalue (float)            - evalue threshold for domain hits
     //       fasta_type (str)                  - type of fasta file (dna, rna, or protein)
-    //       gff_intersect (str)               - path to gff file(s) to intersect with hmmscan results
+    //       gff_intersect (str)               - path to gff file to intersect with hmmscan results
+    //       keep_only_intersect (bool)        - keep only hmmscan hits that intersect with gff file(s)
     //       min_alignment_len (int)           - minimum length of alignment
     //       group (int)                       - distance in bp under which two hmmscan hits are grouped
     //       ch_versions (channel)             - channel containing path to versions.yml
@@ -139,9 +124,10 @@ workflow EXSCAN {
         fasta                = ch_fasta,
         ch_fasta_translated  = ch_fasta_translated,
         ch_hmmscan_domtblout = MERGE_DOMTBLOUT_RESULTS.out.hmmscan_merged_domtblout,
-        domain_ievalue       = domain_ievalue,
+        domain_ieval         = domain_ieval,
         fasta_type           = fasta_type,
         gff_intersect        = gff_intersect,
+        keep_only_intersect  = keep_only_intersect,
         min_alignment_len    = min_alignment_len,
         group_distance       = group_distance,
         ch_versions          = ch_versions

@@ -772,6 +772,19 @@ class HmmscanQueryResult:
         return any(self.domain_hits)
 
 
+    def has_intersecting_gff_features(self) -> bool:
+        """
+        Check if the query result has intersecting GFF features.
+
+        Returns:
+            bool: True if the query result has intersecting GFF features, False otherwise.
+        """
+        if not self.gff_intersecting_features:
+            return False
+
+        return any(self.gff_intersecting_features)
+
+
     def compute_domain_aligment_fragment_absolut_positions(self) -> None:
         """
         Compute the absolute positions of the domain alignments in the parent sequence.

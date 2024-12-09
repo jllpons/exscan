@@ -12,7 +12,7 @@ process HMMSCAN {
     input:
     val  hmmdb_file
     path hmmdb_dir
-    each path(translated)
+    each path(fasta)
 
     output:
     path '*.domtblout',       emit: hmmscan_domtblout
@@ -21,7 +21,7 @@ process HMMSCAN {
 
     script:
     """
-    hmmscan --domtblout ${translated.baseName}.domtblout ${hmmdb_dir}/${hmmdb_file} ${translated} > hmmscan.out
+    hmmscan --domtblout ${fasta.baseName}.domtblout ${hmmdb_dir}/${hmmdb_file} ${fasta} > hmmscan.out
 
     cat <<-END_VERSIONS > versions.yml
     ${task.process}:

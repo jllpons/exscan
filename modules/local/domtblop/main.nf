@@ -99,6 +99,34 @@ process DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH {
     """
 }
 
+process DOMTBLOP_FILTER_KEEP_ONLY_INTERSECT {
+    label 'process_single'
+
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
+        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+
+    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*filterKeepOnlyIntersect.json"
+
+    input:
+    path qresults_serialized
+
+    output:
+    path '*filterMinAlignmentLength.json', emit: qresults_serialized
+    path 'versions.yml',                   emit: versions
+
+    script:
+    """
+    domtblop.py filter --keep-only-intersect ${qresults_serialized} > ${qresults_serialized.baseName}.filterKeepOnlyIntersect.json
+
+    cat <<-END_VERSIONS > versions.yml
+    ${task.process}:
+        Python: \$(python -V | awk '{print \$2}')
+        Biopython: \$(python -c "import Bio; print(Bio.__version__)")
+    END_VERSIONS
+    """
+}
+
 
 process DOMTBLOP_GFFINTERSECT {
     label 'process_single'

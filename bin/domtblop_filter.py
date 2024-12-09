@@ -33,10 +33,15 @@ Filtering options:
 
         --min-alignment-len <value> INT     Keep hits with domain alignment length >= value (sequence side)
 
+    Interecting GFF Features Level Filters:
+    Those filter apply to the different GFF features that intersect with the domain alignments of a query sequence.
+
+        --keep-only-intersect               Keep only the GFF features that intersect with the domain alignments of a query sequence
+
+
 Selection Options:
 
-    --best-hit BOOL                         Only keep the best hit for each sequence or domain
-                                            **based on filtering criteria**
+    --best-hit BOOL                         Only keep the best hit for each sequence or domain **based on filtering criteria**
 
 Options:
     -h, --help                              Show this help message and exit
@@ -61,9 +66,6 @@ Examples:
     Only keep domain alignemnts if at least 50 residues are aligned
       $ domtblop.py filter --min-alignment-length 50 < query_results.json
 """
-
-# TODO: Remove Later
-import pdb
 
 import argparse
 from enum import Enum
@@ -104,6 +106,10 @@ class DomainHitLevelFilter(Enum):
 
 class DomainAlignmentLevelFilter(Enum):
     ALIGNMENT_LENGTH = "alignment_length"
+
+
+class IntersectingGFFFeaturesLevelFilter(Enum): # not used yet
+    KEEP_ONLY_INTERSECT = "keep_only_intersect"
 
 
 class QueryResultWithEmptyFields(Exception):
@@ -512,6 +518,14 @@ def setup_argparse() -> argparse.ArgumentParser:
         help="Keep hits with domain alignment length > value (sequence side)"
     )
 
+    # Intersecting GFF features filters
+    parser.add_argument(
+        "--keep-only-intersect",
+        action="store_true",
+        default=False,
+        help="Keep only the GFF features that intersect with the domain alignments of a query sequence"
+    )
+
     # Optional arguments
     parser.add_argument(
         "--best-hit",
@@ -578,6 +592,7 @@ def setup_config(args: List[str],) -> Tuple[
         config.dom_score,
         config.dom_bias,
         config.min_alignment_length,
+        config.keep_only_intersect,
         ]):
         logger.error(
             "No filtering criteria provided. "
@@ -604,6 +619,8 @@ def run(args: List[str]) -> None:
     except FileNotFoundError:
         sys.exit(1)
 
+    n_qresults_before_filter = 0
+    n_qresults_after_filter = 0
     n_hits_before_filter = 0
     n_hits_after_filter = 0
     n_domain_alignments_before_filter = 0
@@ -618,6 +635,7 @@ def run(args: List[str]) -> None:
 
         logger.debug(f"Attempting to apply filtering conditions to {query_result.query_id}")
 
+        n_qresults_before_filter += 1
         n_hits_before_filter += len(query_result.domain_hits)
         n_domain_alignments_before_filter += sum(len(domain_hit.domain_alignments) for domain_hit in query_result.domain_hits)
 
@@ -670,11 +688,11 @@ def run(args: List[str]) -> None:
             # Here we're applying the filters to domain alignments
             if config.min_alignment_length:
                 filter_domain_alignment_level(query_result, config.min_alignment_length, DomainAlignmentLevelFilter.ALIGNMENT_LENGTH, logger)
+
         except QueryResultWithEmptyFields as e:
             logger.error(e)
             continue
 
-        #pdb.set_trace()
         # NOTE: Remainder that a query result is a nested structure:
         # A. Each query result has a list of domain hits
         # B. Each domain hit has a list of domain alignments
@@ -708,8 +726,14 @@ def run(args: List[str]) -> None:
 
         n_hits_after_filter += len(query_result.domain_hits)
         n_domain_alignments_after_filter += sum(len(domain_hit.domain_alignments) for domain_hit in query_result.domain_hits)
-        try:
 
+
+        if config.keep_only_intersect:
+            if not query_result.has_intersecting_gff_features():
+                continue
+
+        try:
+            n_qresults_after_filter += 1
             print(json.dumps(query_result, cls=CustomEncoder))
 
         except BrokenPipeError:
@@ -718,11 +742,13 @@ def run(args: List[str]) -> None:
             sys.exit(1)
 
     logger.info(
+        f"Number of query results before filtering: {n_qresults_before_filter}, "
         f"Number of hits before filtering: {n_hits_before_filter}, "
         f"Number of hits after filtering: {n_hits_after_filter}, "
         f"Difference: {n_hits_before_filter - n_hits_after_filter}"
     )
     logger.info(
+        f"Number of query results after filtering: {n_qresults_after_filter}, "
         f"Number of domain alignments before filtering: {n_domain_alignments_before_filter}, "
         f"Number of domain alignments after filtering: {n_domain_alignments_after_filter}, "
         f"Difference: {n_domain_alignments_before_filter - n_domain_alignments_after_filter}"

@@ -46,7 +46,7 @@ process BEDTOOLS_INTERSECT {
 
     script:
     """
-    bedtools intersect -wa -wb -a ${gff_a} -b ${gff_b} -filenames > bedtools_intersect.out
+    bedtools intersect -wa -wb -a ${gff_a} -b ${gff_b} > bedtools_intersect.out
 
     cat <<-END_VERSIONS > versions.yml
     ${task.process}:

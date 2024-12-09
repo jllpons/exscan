@@ -3,6 +3,7 @@ include { BEDTOOLS_INTERSECT                      } from '../modules/local/bedto
 include { DOMTBLOP_ADDSEQ                         } from '../modules/local/domtblop'
 include { DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE       } from '../modules/local/domtblop'
 include { DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH } from '../modules/local/domtblop'
+include { DOMTBLOP_FILTER_KEEP_ONLY_INTERSECT     } from '../modules/local/domtblop'
 include { DOMTBLOP_GFFINTERSECT                   } from '../modules/local/domtblop'
 include { DOMTBLOP_GROUP                          } from '../modules/local/domtblop'
 include { DOMTBLOP_PARSER                         } from '../modules/local/domtblop'
@@ -127,7 +128,7 @@ workflow DOMTBLOP_INTERSECT_WORKFLOW {
     take:
     ch_qresults_serialized // channel : [ path(qresults.json) ]
     ch_qresults_gff        // channel : [ path(qresults.gff) ]
-    ch_gff_intersect       // channel : [ path(path/to/intersect.gff || path/to/*.gff) ]
+    ch_gff_intersect       // channel : [ path( path/to/intersect.gff ) ]
 
     main:
 
@@ -136,7 +137,7 @@ workflow DOMTBLOP_INTERSECT_WORKFLOW {
     // DESC: Find intersecting features when comparing query results profile alignments
     //       in GFF format with the intersecting features in the GFF file(s)
     // ARGS: gff_a (channel)                 - Channel containing path to query results profile alignments in GFF format
-    //       gff_b (channel)                 - Channel containing path to GFF file(s)
+    //       gff_b (channel)                 - Channel containing path to GFF file
     // RETS: ch_bedtools_intersect (channel) - Channel containing path to intersecting features in GFF format
     //       ch_versions (channel)           - Channel containing path to versions.yml
     BEDTOOLS_INTERSECT(
@@ -176,9 +177,10 @@ workflow DOMTBLOP_DEFAULT {
     fasta                 // str     : path(path/to/nucleotide.fasta)
     ch_fasta_translated   // channel : [ path(path/to/nucleotide.translated.fasta) ]
     ch_hmmscan_domtblout  // channel : [ path(path/to/domtblout) ]
-    domain_ievalue        // str     : E-value threshold for domain filtering
+    domain_ieval          // str     : E-value threshold for domain filtering
     fasta_type            // str     : Type of fasta file (dna, rna, protein)
-    gff_intersect         // str     : path(path/to/intersect.gff || path/to/*.gff)
+    gff_intersect         // str     : path( path/to/intersect.gff )
+    keep_only_intersect   // bool    : Keep only intersecting features
     min_alignment_len     // int     : Minimum length of alignment
     group                 // int     : Hit maximum grouping distance
     ch_versions           // channel : [ path(versions.yml) ]
@@ -228,12 +230,12 @@ workflow DOMTBLOP_DEFAULT {
 
     // DESC: Filter hits using each domain individual E-value as a threshold
     // ARGS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
-    //       threshold (str)                 - E-value threshold (e.g. 1e-5, 0.001)
+    //       threshold (str)                  - E-value threshold (e.g. 1e-5, 0.001)
     // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with filtered hits
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE(
         ch_qresults_serialized = ch_qresults_serialized,
-        threshold = domain_ievalue,
+        threshold = domain_ieval,
     )
     ch_versions = ch_versions.mix(DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE.out.versions)
 
@@ -276,7 +278,7 @@ workflow DOMTBLOP_DEFAULT {
         // DESC: Find intersecting features when comparing query results profile alignments
         //       in GFF format with the intersecting features in the GFF file(s)
         // ARGS: qresults_serialized (channel) - Channel containing path to serialized JSON file
-        //       gff_intersect (channel)       - Channel containing path to GFF file(s)
+        //       gff_intersect (channel)       - Channel containing path to GFF file
         // RETS: qresults_serialized (channel) - Channel containing path to serialized JSON file with intersecting features
         //       ch_versions (channel)         - Channel containing path to versions.yml
         DOMTBLOP_INTERSECT_WORKFLOW(
@@ -288,6 +290,19 @@ workflow DOMTBLOP_DEFAULT {
         ch_versions = ch_versions.mix(DOMTBLOP_INTERSECT_WORKFLOW.out.versions)
     } else {
         ch_qresults_serialized = DOMTBLOP_GROUP.out.qresults_serialized
+    }
+
+    if (keep_only_intersect) {
+        // DESC: Keep only intersecting features
+        // ARGS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file
+        // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with intersecting features
+        //       ch_versions (channel)            - Channel containing path to versions.yml
+        DOMTBLOP_FILTER_KEEP_ONLY_INTERSECT(
+            ch_qresults_serialized = ch_qresults_serialized,
+
+        )
+        ch_versions = ch_versions.mix(DOMTBLOP_FILTER_KEEP_ONLY_INTERSECT.out.versions)
+        ch_qresults_serialized = DOMTBLOP_FILTER_KEEP_ONLY_INTERSECT.out.qresults_serialized
     }
 
 

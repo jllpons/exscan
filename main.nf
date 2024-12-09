@@ -1,9 +1,12 @@
 #!/usr/bin/env nextflow
 
+include { EXSCAN } from './workflows/exscan'
+
+
 help_message = """
 E X S C A N   P I P E L I N E
 =============================
-Exploration and annotation of exons and their features using profile HMMs.
+Explore and identify exons through sequence scanning using profile HMMs.
 
 Usage:
     nextflow run exscan.nf --fasta <fasta> --hmmdb <hmm_db>
@@ -21,14 +24,14 @@ Alternative to Required Arguments:
 Optional Arguments:
     --dom_ieval <val>         : Domain alignment individual e-value filter [default: ${params.dom_ieval}]
                                 Domain alignments with **equal or less** than this e-value will be kept
-    --fasta_type <val>        : Type of sequences found in input `--fasta` file.
+    --fasta_type <val>        : Type of sequences in input `--fasta` file.
                                 Choices: {dna, rna, protein} [defalut: $params.fasta_type]
-    --gff_intersect <gff>     : If provided, any feature in the GFF file(s) that intersects
-                                with a domain alignment will be retained. Multiple GFF files
-                                can be provided using a wildcard like 'path/to/*.gff'.
+    --gff_intersect <gff>     : If provided, any feature in the GFF file that intersects
+                                with a domain alignment will be retained.
                                 The information about each intersecting feature will be kept.
     --group_distance <val>    : Group query results within n bps [default: ${params.group_distance}]
-    --min_alignment_len <val> : Domain alignment minimum lenght filter [default: ${params.min_alignment_len}]
+    --keep_only_intersect     : Keep only query results that intersect with a GFF feature of the provided GFF file(s)
+    --min_alignment_len <val> : Domain alignment minimum length filter [default: ${params.min_alignment_len}]
                                 Domain alignments with **EQUAL OR MORE** than this distance will be
     --outdir <outdir>         : Output directory [default: ${params.outdir}]
 
@@ -39,40 +42,26 @@ Optional Arguments:
 init_summary = """
 E X S C A N   P I P E L I N E   v${params.manifest.version}
 ======================================
-fasta             : ${params.fasta}
-hmmdb             : ${params.hmmdb}
-dom_ieval         : ${params.dom_ieval}
-fasta_type        : ${params.fasta_type}
-gff_intersect     : ${params.gff_intersect}
-group_distance    : ${params.group_distance}
-min_alignment_len : ${params.min_alignment_len}
-outdir            : ${params.outdir}
+fasta               : ${params.fasta}
+hmmdb               : ${params.hmmdb}
+dom_ieval           : ${params.dom_ieval}
+fasta_type          : ${params.fasta_type}
+gff_intersect       : ${params.gff_intersect}
+group_distance      : ${params.group_distance}
+keep_only_intersect : ${params.keep_only_intersect}
+min_alignment_len   : ${params.min_alignment_len}
+outdir              : ${params.outdir}
 
 --
 
-Run as            : ${workflow.commandLine}
-Started at        : ${workflow.start}
-Config files      : ${workflow.configFiles}
+Run as              : ${workflow.commandLine}
+Started at          : ${workflow.start}
+Config files        : ${workflow.configFiles}
 
 --
 """
 // container images : ${workflow.containerEngine}:${workflow.container}
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT FUNCTIONS / MODULES / SUBWORKFLOWS / WORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-import groovy.json.JsonOutput
-// Main workflow
-include { EXSCAN } from './workflows/exscan'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 
 // DESC: Validate input arguments and initialize pipeline, printing a small summary
 // ARGS: None, uses variables defined at the beginning of the script
@@ -138,30 +127,6 @@ def handle_hmmdb() {
 }
 
 
-// DESC: Dump versions of all tools used in the pipeline, as well as input parameters
-// ARGS: None, uses variables defined at the beginning of the script
-// OUTS: Versions of all tools used in the pipeline at `${params.outdir}/pipeline_info/versions.yml`
-//       Input parameters at `${params.outdir}/pipeline_info/params.json`
-// RETS: None
-def dumpPipelineInfo() {
-    ch_versions.collectFile(
-        storeDir: "${params.outdir}/pipeline_info/",
-        name: 'versions.yml',
-        sort: true,
-        newLine: true
-    )
-
-    // Store input parameters as JSON
-    ch_params = Channel.from(params)
-    ch_params.collectFile(
-        storeDir: "${params.outdir}/pipeline_info/",
-        name: 'params.json',
-        sort: true,
-        newLine: true
-    )
-}
-
-
 // DESC: Display completion message based on workflow status
 // ARGS: None, uses variables defined at the beginning of the script
 // OUTS: Completion message at `INFO` or `ERROR` level
@@ -170,30 +135,20 @@ def completionMsg() {
 
     if (workflow.success) {
         if (workflow.stats.ignoredCount == 0) {
-            log.info """
-Pipeline completed successfully!
-            """
+            log.info "Pipeline completed successfully!"
         }
         else {
-            log.info """
-Pipeline completed successully, but with erroed processes
-            """
+            log.info "Pipeline completed successully, but with errored processes"
         }
     }
     else {
-        log.error """
-Pipeline completed with errors
-        """
+        log.error "Pipeline completed with errors"
     }
 
 }
 
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
+// Main workflow
 
 
 workflow {
@@ -213,15 +168,16 @@ workflow {
     ch_versions = Channel.empty()
     // WORKFLOW: After validation, main workflow is launched here
     EXSCAN(
-        params.fasta,
-        params.hmmdb_file,
-        params.hmmdb_dir,
         params.dom_ieval,
+        params.fasta,
         params.fasta_type,
         params.gff_intersect,
         params.group_distance,
+        params.hmmdb_dir,
+        params.hmmdb_file,
+        params.keep_only_intersect,
         params.min_alignment_len,
-        ch_versions
+        ch_versions,
     )
     ch_versions = ch_versions.mix(EXSCAN.out.versions)
 
