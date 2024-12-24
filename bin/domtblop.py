@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-domtblop: Perform operations on query results from a hmmscan domtblout files.
+Perform different operations on query results from a hmmscan domtblout files.
 
 Usage: domtblop.py <operation> [options]
 
