@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # Variables
-projectdir="/Users/jponsramon/Dropbox/PhD/devel/exscan"
+projectdir=$(pwd)
 expecteddir="tests/data/domtblop/filter"
 cwd=$(pwd)
 
