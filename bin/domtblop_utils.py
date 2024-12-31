@@ -7,8 +7,8 @@ import os
 import sys
 
 from typing import (
-        TextIO,
-        )
+    TextIO,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -33,16 +33,12 @@ def setup_logger(level: str) -> logging.Logger:
     stderr_handler.setLevel(level)
     stderr_handler.setFormatter(logging.Formatter(fmt))
 
-    logging.basicConfig(
-        level=level,
-        format=fmt,
-        handlers=[stderr_handler]
-        )
+    logging.basicConfig(level=level, format=fmt, handlers=[stderr_handler])
 
     logger = logging.getLogger(__name__)
 
     # If a library is too verbose, we can use this example:
-    #logging.getLogger("requests").propagate = False
+    # logging.getLogger("requests").propagate = False
 
     return logger
 

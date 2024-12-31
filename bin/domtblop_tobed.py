@@ -38,7 +38,6 @@ class BedFeature:
     end: int
     name: str
 
-
     def __str__(self):
         return f"{self.seqid}\t{self.start}\t{self.end}\t{self.name}"
 
@@ -54,7 +53,11 @@ def bed_from_query_result(query_result: HmmscanQueryResult) -> BedFeature:
         BedFeature: A BedFeature object.
     """
     seqid = query_result.parent_sequence.sequence_id
-    start = query_result.parent_sequence.start - 1 if query_result.parent_sequence.start > 0 else 0
+    start = (
+        query_result.parent_sequence.start - 1
+        if query_result.parent_sequence.start > 0
+        else 0
+    )
     end = query_result.parent_sequence.end
     query_id = query_result.query_id
 
@@ -101,7 +104,9 @@ def setup_argparse() -> argparse.ArgumentParser:
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -125,9 +130,13 @@ def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
         logger.error(
-            f"Serialized domtblout file '{config.serialized_domtblout}' " "does not exist."
+            f"Serialized domtblout file '{config.serialized_domtblout}' "
+            "does not exist."
         )
         raise FileNotFoundError
 
@@ -135,7 +144,6 @@ def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
@@ -169,4 +177,3 @@ def run(args: List[str]) -> None:
 
 if __name__ == "__main__":
     run(sys.argv[1:])
-

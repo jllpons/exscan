@@ -1,42 +1,48 @@
-#!/usr/bin/env nextflow
-
 include { EXSCAN } from './workflows/exscan'
 
 
 help_message = """
-E X S C A N   P I P E L I N E
-=============================
-Explore and identify exons through sequence scanning using profile HMMs.
+exscan.nf - An extended sequence scanner
+========================================
+Explore key elements in a sequence using HMM profile scanning.
 
 Usage:
     nextflow run exscan.nf --fasta <fasta> --hmmdb <hmm_db>
     nextflow run exscan.nf -params-file <yaml>
 
 Required Arguments:
-    --fasta <fasta>           : Input fasta file
-    --hmmdb <hmmdb>           : Profile HMM database file
-                                Index files from hmmpress must also be located in the same directory
+    --fasta <fasta>             : Input fasta file
+
+    --hmmdb <hmmdb>             : Profile HMM database file
+                                  Index files from hmmpress must also be located in the same directory
 
 Alternative to Required Arguments:
-    -params-file <yaml>       : YAML/JSON file with parameters for each sample
-                                Mutually exclusive with --fasta and --hmmdb
+    -params-file <yaml>         : YAML/JSON file with the parameters
+                                  Mutually exclusive with --fasta and --hmmdb
 
 Optional Arguments:
-    --dom_ieval <val>         : Domain alignment individual e-value filter [default: ${params.dom_ieval}]
-                                Domain alignments with **equal or less** than this e-value will be kept
-    --fasta_type <val>        : Type of sequences in input `--fasta` file.
-                                Choices: {dna, rna, protein} [defalut: $params.fasta_type]
-    --gff_intersect <gff>     : If provided, any feature in the GFF file that intersects
-                                with a domain alignment will be retained.
-                                The information about each intersecting feature will be kept.
-    --group_distance <val>    : Group query results within n bps [default: ${params.group_distance}]
-    --keep_only_intersect     : Keep only query results that intersect with a GFF feature of the provided GFF file(s)
-    --min_alignment_len <val> : Domain alignment minimum length filter [default: ${params.min_alignment_len}]
-                                Domain alignments with **EQUAL OR MORE** than this distance will be
-    --outdir <outdir>         : Output directory [default: ${params.outdir}]
+    --sequence_type <val>       : Type of sequences in the input `--fasta` file.
+                                  Choices: {dna, protein} [defalut: ${params.sequence_type}]
 
-    --help                    : Print help message and exit
-    --version                 : Print version and exit
+    --dom_ieval_filter <val>    : Filter domain alignment by individual E-value [default: ${params.dom_ieval_filter}]
+                                  Retains alignments with individual E-values **equal or less** than this value
+
+    --min_alignment_len <val>   : Minimum length for domain alignments [default: ${params.min_alignment_len}]
+                                  Retains alignments with length **equal or more** than this value
+
+    --grouping_distance <val>   : Group query results within this many base pairs [default: ${params.grouping_distance}]
+
+    --gff_intersect <gff>       : If provided, any feature in this GFF intersecting
+                                  with a domain alignment will be retained.
+
+    --keep_only_intersect       : Retain only query results that intersect with features
+                                  of the provided GFF file.
+
+    --outdir <outdir>           : Output directory [default: ${params.outdir}]
+
+    --help                      : Print help message and exit
+
+    --version                   : Print version and exit
 """
 
 init_summary = """
@@ -44,12 +50,12 @@ E X S C A N   P I P E L I N E   v${params.manifest.version}
 ======================================
 fasta               : ${params.fasta}
 hmmdb               : ${params.hmmdb}
-dom_ieval           : ${params.dom_ieval}
-fasta_type          : ${params.fasta_type}
-gff_intersect       : ${params.gff_intersect}
-group_distance      : ${params.group_distance}
-keep_only_intersect : ${params.keep_only_intersect}
+sequence_type       : ${params.sequence_type}
+dom_ieval_filter    : ${params.dom_ieval_filter}
 min_alignment_len   : ${params.min_alignment_len}
+grouping_distance   : ${params.grouping_distance}
+gff_intersect       : ${params.gff_intersect}
+keep_only_intersect : ${params.keep_only_intersect}
 outdir              : ${params.outdir}
 
 --
@@ -103,8 +109,8 @@ def validateParams() {
         System.exit(1)
     }
 
-    if (params.fasta_type != 'dna' && params.fasta_type != 'rna' && params.fasta_type != 'protein') {
-        log.error "Invalid fasta type: ${params.fasta_type}. Must be one of {dna, rna, protein}"
+    if (params.sequence_type != 'dna' && params.sequence_type != 'protein') {
+        log.error "Invalid fasta type: ${params.sequence_type}. Must be one of {dna, protein}"
         System.exit(1)
     }
 
@@ -168,11 +174,11 @@ workflow {
     ch_versions = Channel.empty()
     // WORKFLOW: After validation, main workflow is launched here
     EXSCAN(
-        params.dom_ieval,
+        params.dom_ieval_filter,
         params.fasta,
-        params.fasta_type,
+        params.sequence_type,
         params.gff_intersect,
-        params.group_distance,
+        params.grouping_distance,
         params.hmmdb_dir,
         params.hmmdb_file,
         params.keep_only_intersect,

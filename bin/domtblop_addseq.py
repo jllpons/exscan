@@ -4,7 +4,7 @@
 Add sequences to each Query Result that has maching ids in a fasta file.
 
 Usage:
-    domtblop.py group [options] <serialized_domtblout> <fasta_file>
+    domtblop.py addseq [options] <serialized_domtblout> <fasta_file> --seq-type <sequence type>
 
 
 Arguments:
@@ -20,27 +20,54 @@ Options:
 """
 
 import argparse
+from dataclasses import dataclass
 import json
 import logging
 import os
 import sys
+from typing import Dict, List
 from typing import (
-        Dict,
-        List,
-        Tuple,
-        )
+    Dict,
+    List,
+    Tuple,
+)
 
 from Bio.SeqIO.FastaIO import SimpleFastaParser
 
 from domtblop_parser import (
-        HmmscanQueryResult,
-        UnexpectedQueryIdFormat,
-        CustomEncoder,
-        )
+    HmmscanQueryResult,
+    UnexpectedQueryIdFormat,
+    CustomEncoder,
+)
 from domtblop_utils import (
-        setup_logger,
-        read_input,
-    )
+    setup_logger,
+    read_input,
+)
+
+
+@dataclass
+class AddSeqParams:
+    sequence_type: str
+    name: str = "addseq"
+
+    def to_json(self) -> Dict:
+        return {
+            "name": self.name,
+            "sequence_type": self.sequence_type,
+        }
+
+    @classmethod
+    def from_json(cls, json_data: Dict) -> "AddSeqParams":
+        try:
+            name = json_data["name"]
+            sequence_type = json_data["sequence_type"]
+
+        except KeyError as e:
+            raise ValueError(f"Missing required key: {e}")
+
+        addseq_params = cls(sequence_type=sequence_type, name=name)
+
+        return addseq_params
 
 
 def setup_argparse() -> argparse.ArgumentParser:
@@ -62,40 +89,35 @@ def setup_argparse() -> argparse.ArgumentParser:
         type=str,
         nargs="?",
         default="-",
-        )
+    )
     parser.add_argument(
         "fasta_file",
         metavar="<fasta_file>",
         type=str,
-        nargs=1,
-        )
-
-    # Optional arguments
-    parser.add_argument(
-        "--nucleotide",
-        action="store_true",
-        default=False,
-        help="Include sequence as parent sequence."
     )
     parser.add_argument(
-        "-l", "--loglevel",
+        "--seq-type",
+        metavar="<sequence type>",
+        type=str,
+        required=True,
+        choices=["dna", "protein"],
+    )
+
+    parser.add_argument(
+        "-l",
+        "--loglevel",
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
-    parser.add_argument(
-        "-h", "--help",
-        action="store_true",
-        default=False
-    )
+    parser.add_argument("-h", "--help", action="store_true", default=False)
 
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[
-        argparse.Namespace,
-        logging.Logger
-        ]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -119,19 +141,19 @@ def setup_config(args: List[str],) -> Tuple[
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
         logger.error(
             f"Serialized domtblout file '{config.serialized_domtblout}' "
             "does not exist."
         )
         raise FileNotFoundError
 
-    if not os.path.exists(config.fasta_file[0]):
-        logger.error(
-            f"FASTA file '{config.fasta_file[0]}' does not exist."
-        )
+    if not os.path.exists(config.fasta_file):
+        logger.error(f"FASTA file '{config.fasta_file}' does not exist.")
         raise FileNotFoundError
-
 
     return config, logger
 
@@ -160,19 +182,17 @@ def parse_fasta(fasta_file: str) -> Dict[str, str]:
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
         sys.exit(1)
     logger.info(
-        "Running with the following configuration: " 
-        + ", ".join(f"{k}={v}" for k,v in config.__dict__.items())
-        )
-
+        "Running with the following configuration: "
+        + ", ".join(f"{k}={v}" for k, v in config.__dict__.items())
+    )
 
     try:
-        fasta_contents = parse_fasta(config.fasta_file[0])
+        fasta_contents = parse_fasta(config.fasta_file)
     except FileNotFoundError as e:
         logger.error(f"{e}")
         sys.exit(1)
@@ -182,22 +202,35 @@ def run(args: List[str]) -> None:
     except FileNotFoundError:
         sys.exit(1)
 
-
     for line in file_handle:
-
         try:
             query_result = HmmscanQueryResult.from_json(json.loads(line))
         except UnexpectedQueryIdFormat as e:
             logger.error(e)
             sys.exit(1)
 
-        if config.nucleotide:
-            query_result.nucleotide_sequence = fasta_contents.get(query_result.query_id, None)
+        match config.seq_type:
+            case "dna":
+                query_result.source_sequence = fasta_contents.get(
+                    query_result.query_id, None
+                )
+                query_result.metadata.parameters_used.append(
+                    AddSeqParams(config.seq_type)
+                )
+                query_result.update_modified_at()
 
-        else:
-            query_result.aminoacid_sequence = fasta_contents.get(query_result.query_id, None)
+            case "protein":
+                query_result.protein_sequence = fasta_contents.get(
+                    query_result.query_id, None
+                )
+                query_result.mk_domain_alignment_fragment_sequences()
+                query_result.metadata.parameters_used.append(
+                    AddSeqParams(config.seq_type)
+                )
+                query_result.update_modified_at()
 
-            query_result.mk_domain_alignment_fragment_sequences()
+            case _:
+                raise ValueError("Sequence type not supported")
 
         try:
             print(json.dumps(query_result, cls=CustomEncoder))
@@ -206,4 +239,3 @@ def run(args: List[str]) -> None:
             devnull = os.open(os.devnull, os.O_WRONLY)
             os.dup2(devnull, sys.stdout.fileno())
             sys.exit(1)
-

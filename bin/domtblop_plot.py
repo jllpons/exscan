@@ -40,16 +40,16 @@ from domtblop_utils import setup_logger, read_input
 sns.set_theme()
 
 # Set up the figure sizes
-pt = 1./72.27 # 72.27 points per inch
-two_columns_figure = 539.*pt
+pt = 1.0 / 72.27  # 72.27 points per inch
+two_columns_figure = 539.0 * pt
 golden_ratio = (1 + 5**0.5) / 2
 
 my_width = two_columns_figure
 
 HORIZONTAL_FIGSIZE = (my_width, my_width / golden_ratio)
-VERTICAL_FIGSIZE = (my_width*golden_ratio, my_width)
-XXLARGE_HORIZ_FIGSIZE = (my_width*5, my_width*5 / golden_ratio)
-XXLARGE_VERT_FIGSIZE = (my_width*5*golden_ratio, my_width*5)
+VERTICAL_FIGSIZE = (my_width * golden_ratio, my_width)
+XXLARGE_HORIZ_FIGSIZE = (my_width * 5, my_width * 5 / golden_ratio)
+XXLARGE_VERT_FIGSIZE = (my_width * 5 * golden_ratio, my_width * 5)
 
 
 def mk_plots_dir() -> None:
@@ -62,9 +62,9 @@ def mk_plots_dir() -> None:
 
 
 def mk_nhits_per_profile_barplot(
-        query_results: List[HmmscanQueryResult],
-        logger: logging.Logger,
-        ) -> None:
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+) -> None:
     """
     Make a barplot of the number of hits per profile.
     Barplot should be horizontal and sorted by number of hits.
@@ -87,14 +87,18 @@ def mk_nhits_per_profile_barplot(
         data=df,
         ax=ax,
         order=df["hmmProfile"].value_counts().index,
-        )
+    )
 
-    ax.bar_label(ax.containers[0], fontsize=8)
-
+    try:
+        ax.bar_label(ax.containers[0], fontsize=8)
+    except IndexError:
+        pass
 
     plt.xlabel("Number of hits", size=9)
     plt.ylabel("HMM Profile", size=9)
-    plt.yticks(size=8,)
+    plt.yticks(
+        size=8,
+    )
     ax.set_title("Number of hits per HMM profile")
 
     plt.savefig("plots/nhits_per_profile_barplot.svg", format="svg")
@@ -104,11 +108,10 @@ def mk_nhits_per_profile_barplot(
 
 
 def mk_nhits_per_profile_and_per_chromosome_barplot(
-        query_results: List[HmmscanQueryResult],
-        logger: logging.Logger,
-        ) -> None:
-    """
-    """
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+) -> None:
+    """ """
 
     data = {"hmmProfile": [], "chromosome": []}
     for query_result in query_results:
@@ -131,7 +134,7 @@ def mk_nhits_per_profile_and_per_chromosome_barplot(
         ax=ax,
         hue="hmmProfile",
         hue_order=df["hmmProfile"].value_counts().index,
-        )
+    )
 
     ax.bar_label(ax.containers[0], fontsize=9)
     for container in ax.containers:
@@ -140,7 +143,9 @@ def mk_nhits_per_profile_and_per_chromosome_barplot(
     plt.xlabel("Chromosome", size=30)
     plt.ylabel("Number of hits", size=30)
     plt.xticks(size=20, rotation=45)
-    plt.yticks(size=20,)
+    plt.yticks(
+        size=20,
+    )
     ax.set_title("Number of hits per HMM profile and per chromosome", size=40)
 
     plt.legend(loc="upper right", fontsize=20)
@@ -151,10 +156,9 @@ def mk_nhits_per_profile_and_per_chromosome_barplot(
 
 
 def mk_violinplot_evalue_distribution_per_profile(
-        query_results: List[HmmscanQueryResult],
-        logger: logging.Logger,
-        ) -> None:
-
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+) -> None:
     data = {"query_id": [], "hmmProfile": [], "evalue": []}
     for query_result in query_results:
         for domain_hit in query_result.domain_hits:
@@ -175,14 +179,15 @@ def mk_violinplot_evalue_distribution_per_profile(
         ax=ax,
         scale="width",
         hue="hmmProfile",
-        )
+    )
 
-
-    #ax.set_yscale("log")
-    #ax.set_ylim(min(df["evalue"]), 1e-3)
+    # ax.set_yscale("log")
+    # ax.set_ylim(min(df["evalue"]), 1e-3)
     plt.xlabel("HMM Profile", size=9)
     plt.ylabel("E-value", size=9)
-    plt.yticks(size=8,)
+    plt.yticks(
+        size=8,
+    )
     plt.xticks(size=6)
     ax.set_title("E-value distribution per HMM profile")
 
@@ -192,24 +197,27 @@ def mk_violinplot_evalue_distribution_per_profile(
 
 
 def mk_violinplot_aligment_length_distribution_per_profile(
-        query_results: List[HmmscanQueryResult],
-        logger: logging.Logger,
-        ) -> None:
-
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+) -> None:
     data = {"query_id": [], "hmmProfile": [], "alignment_length": []}
     for query_result in query_results:
         for domain_hit in query_result.domain_hits:
             data["query_id"].append(query_result.query_id)
             data["hmmProfile"].append(domain_hit.name)
 
-            best_domain_alignment = max(domain_hit.domain_alignments, key=lambda x: x.independent_evalue)
+            best_domain_alignment = max(
+                domain_hit.domain_alignments, key=lambda x: x.independent_evalue
+            )
 
             length = 0
             for domain_alignment_fragment in best_domain_alignment.alignment_fragments:
-                length += (domain_alignment_fragment.sequence_end - domain_alignment_fragment.sequence_start)
+                length += (
+                    domain_alignment_fragment.sequence_end
+                    - domain_alignment_fragment.sequence_start
+                )
 
             data["alignment_length"].append(length)
-
 
     df = pd.DataFrame(data)
 
@@ -224,25 +232,30 @@ def mk_violinplot_aligment_length_distribution_per_profile(
         ax=ax,
         scale="width",
         hue="hmmProfile",
-        )
+    )
 
     plt.xlabel("HMM Profile", size=9)
     plt.ylabel("No. Residues", size=9)
-    plt.yticks(size=8,)
+    plt.yticks(
+        size=8,
+    )
     plt.xticks(size=6)
-    ax.set_title("No. of residues from translated sequence aligned against HMM profiles")
+    ax.set_title(
+        "No. of residues from translated sequence aligned against HMM profiles"
+    )
 
-    plt.savefig("plots/violinplot_alignment_length_distribution_per_profile.svg", format="svg")
+    plt.savefig(
+        "plots/violinplot_alignment_length_distribution_per_profile.svg", format="svg"
+    )
     plt.clf()
     plt.close()
 
 
 def mk_violin_bitscore_distribution_per_profile(
-        query_results: List[HmmscanQueryResult],
-        logger: logging.Logger,
-        ) -> None:
-    """
-    """
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+) -> None:
+    """ """
 
     data = {"query_id": [], "hmmProfile": [], "bitscore": []}
     for query_result in query_results:
@@ -264,12 +277,14 @@ def mk_violin_bitscore_distribution_per_profile(
         ax=ax,
         scale="width",
         hue="hmmProfile",
-        )
+    )
 
     plt.xlabel("HMM Profile", size=9)
     plt.ylabel("Bitscore", size=9)
 
-    plt.yticks(size=8,)
+    plt.yticks(
+        size=8,
+    )
     plt.xticks(size=6)
 
     ax.set_title("Bitscore distribution per HMM profile Hits")
@@ -279,11 +294,10 @@ def mk_violin_bitscore_distribution_per_profile(
 
 
 def mk_upset_hits_per_sequence(
-        query_results: List[HmmscanQueryResult],
-        logger: logging.Logger,
-        ) -> None:
-    """
-    """
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+) -> None:
+    """ """
 
     query_id_memberships = {}
     for query_result in query_results:
@@ -291,16 +305,16 @@ def mk_upset_hits_per_sequence(
 
     for query_result in query_results:
         for domain_hit in query_result.domain_hits:
-            if domain_hit.name not in query_id_memberships[query_result.query_id].split(","):
+            if domain_hit.name not in query_id_memberships[query_result.query_id].split(
+                ","
+            ):
                 query_id_memberships[query_result.query_id] += f"{domain_hit.name},"
 
     # remove trailing comma
     for query_id in query_id_memberships:
         query_id_memberships[query_id] = query_id_memberships[query_id][:-1]
 
-    to_lists = [
-        i.split(",") for i in query_id_memberships.values()
-        ]
+    to_lists = [i.split(",") for i in query_id_memberships.values()]
 
     df = from_memberships(to_lists)
 
@@ -312,7 +326,7 @@ def mk_upset_hits_per_sequence(
         show_counts=True,
         show_percentages=True,
         element_size=70,
-        )
+    )
 
     upset.plot()
 
@@ -354,7 +368,9 @@ def setup_argparse() -> argparse.ArgumentParser:
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -378,18 +394,20 @@ def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
         logger.error(
-            f"Serialized domtblout file '{config.serialized_domtblout}' " "does not exist."
+            f"Serialized domtblout file '{config.serialized_domtblout}' "
+            "does not exist."
         )
         raise FileNotFoundError
-
 
     return config, logger
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
@@ -406,7 +424,6 @@ def run(args: List[str]) -> None:
 
     query_results = []
     for line in file_handle:
-
         try:
             query_result = HmmscanQueryResult.from_json(json.loads(line))
         except UnexpectedQueryIdFormat as e:
@@ -414,7 +431,6 @@ def run(args: List[str]) -> None:
             sys.exit(1)
 
         query_results.append(query_result)
-
 
     mk_plots_dir()
 

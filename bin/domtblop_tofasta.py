@@ -46,11 +46,15 @@ class Fasta:
     sequence: str
 
     def __str__(self):
-        seq_newline = "\n".join(self.sequence[i:i+80] for i in range(0, len(self.sequence), 80))
+        seq_newline = "\n".join(
+            self.sequence[i : i + 80] for i in range(0, len(self.sequence), 80)
+        )
         return f">{self.header}\n{seq_newline}"
 
 
-def mk_domain_alignment_fasta(query_result: HmmscanQueryResult, offset: int = 0) -> List[Fasta]:
+def mk_domain_alignment_fasta(
+    query_result: HmmscanQueryResult, offset: int = 0
+) -> List[Fasta]:
     """
     Create a list of FASTA objects from the domain alignments of a query result.
 
@@ -70,22 +74,31 @@ def mk_domain_alignment_fasta(query_result: HmmscanQueryResult, offset: int = 0)
     if not query_result.domain_hits:
         raise ValueError(f"No domain hits found for query '{query_result.query_id}'.")
     if not any(domain_hit.domain_alignments for domain_hit in query_result.domain_hits):
-        raise ValueError(f"No domain alignments found for query '{query_result.query_id}'.")
-    if not any(domain_alignment.alignment_fragments for domain_hit in query_result.domain_hits for domain_alignment in domain_hit.domain_alignments):
-        raise ValueError(f"No alignment fragments found for query '{query_result.query_id}'.")
-    if not query_result.aminoacid_sequence:
-        raise ValueError(f"No protein sequence found for query '{query_result.query_id}'.")
+        raise ValueError(
+            f"No domain alignments found for query '{query_result.query_id}'."
+        )
+    if not any(
+        domain_alignment.alignment_fragments
+        for domain_hit in query_result.domain_hits
+        for domain_alignment in domain_hit.domain_alignments
+    ):
+        raise ValueError(
+            f"No alignment fragments found for query '{query_result.query_id}'."
+        )
+    if not query_result.protein_sequence:
+        raise ValueError(
+            f"No protein sequence found for query '{query_result.query_id}'."
+        )
 
     fastas = []
 
     for domain_hit in query_result.domain_hits:
+        alignment_number = 0
         for domain_alignment in domain_hit.domain_alignments:
-
-            header = f"{query_result.query_id}::{domain_hit.name}"
+            header = f"{query_result.query_id}::domainHit={domain_hit.name}_begin={domain_alignment.alignment_fragments[0].sequence_start}_end={domain_alignment.alignment_fragments[0].sequence_end}::alignment={alignment_number}"
             sequence = domain_alignment.alignment_fragments[0].sequence
 
             if len(domain_alignment.alignment_fragments) == 1:
-
                 if offset > 0:
                     header += f"::offset={offset}"
 
@@ -97,22 +110,22 @@ def mk_domain_alignment_fasta(query_result: HmmscanQueryResult, offset: int = 0)
                     else:
                         start = start - offset
 
-                    if len(query_result.aminoacid_sequence) < ( end + offset):
-                        end = len(query_result.aminoacid_sequence)
+                    if len(query_result.protein_sequence) < (end + offset):
+                        end = len(query_result.protein_sequence)
                     else:
                         end = end + offset
 
-                    sequence = query_result.aminoacid_sequence[start:end]
-
+                    sequence = query_result.protein_sequence[start:end]
 
                 fastas.append(Fasta(header=header, sequence=sequence))
 
+                alignment_number += 1
+
             else:
                 raise ValueError(
-                        f"Multiple alignment fragments found for query '{query_result.query_id}'",
-                        "logic still needs to be implemented."
-                        )
-
+                    f"Multiple alignment fragments found for query '{query_result.query_id}'",
+                    "logic still needs to be implemented.",
+                )
 
     return fastas
 
@@ -159,7 +172,9 @@ def setup_argparse() -> argparse.ArgumentParser:
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -183,17 +198,21 @@ def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
         logger.error(
-            f"Serialized domtblout file '{config.serialized_domtblout}' " "does not exist."
+            f"Serialized domtblout file '{config.serialized_domtblout}' "
+            "does not exist."
         )
         raise FileNotFoundError
 
-
     if not config.seq_kind:
-        logger.error("No sequence kind provided. Run with -h/--help for more information.")
+        logger.error(
+            "No sequence kind provided. Run with -h/--help for more information."
+        )
         raise ValueError
-
 
     if config.seq_kind not in ["nucleotide", "protein", "domain-alignment"]:
         logger.error(
@@ -202,12 +221,10 @@ def setup_config(args: List[str],) -> Tuple[argparse.Namespace, logging.Logger]:
         )
         raise ValueError
 
-
     return config, logger
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
@@ -230,32 +247,48 @@ def run(args: List[str]) -> None:
             sys.exit(1)
 
         match config.seq_kind:
-
             case "nucleotide":
-                if not query_result.nucleotide_sequence:
-                    logger.warning(f"No nucleotide sequence found for query '{query_result.query_id}'.")
+                if not query_result.source_sequence:
+                    logger.warning(
+                        f"No nucleotide sequence found for query '{query_result.query_id}'."
+                    )
                     continue
                 fasta = Fasta(
-                        header=f"{query_result.query_id}::{';'.join([i.name for i in query_result.domain_hits])}",
-                    sequence=query_result.nucleotide_sequence if query_result.nucleotide_sequence else ""
+                    header=f"{query_result.query_id}::domainHits={';'.join([i.name for i in query_result.domain_hits])}",
+                    sequence=query_result.source_sequence
+                    if query_result.source_sequence
+                    else "",
                 )
 
             case "protein":
-                if not query_result.aminoacid_sequence:
-                    logger.warning(f"No protein sequence found for query '{query_result.query_id}'.")
+                if not query_result.protein_sequence:
+                    logger.warning(
+                        f"No protein sequence found for query '{query_result.query_id}'."
+                    )
                     continue
                 fasta = Fasta(
-                        header=f"{query_result.query_id}::{';'.join([i.name for i in query_result.domain_hits])}",
-                    sequence=query_result.aminoacid_sequence if query_result.aminoacid_sequence else ""
+                    header=f"{query_result.query_id}::domainHits={';'.join([i.name for i in query_result.domain_hits])}",
+                    sequence=query_result.protein_sequence
+                    if query_result.protein_sequence
+                    else "",
                 )
 
             case "domain-alignment":
-                if not query_result.domain_hits[0].domain_alignments[0].alignment_fragments[0].sequence:
-                    logger.warning(f"No domain alignment found for query '{query_result.query_id}'.")
+                if (
+                    not query_result.domain_hits[0]
+                    .domain_alignments[0]
+                    .alignment_fragments[0]
+                    .sequence
+                ):
+                    logger.warning(
+                        f"No domain alignment found for query '{query_result.query_id}'."
+                    )
                     continue
 
                 try:
-                    fasta = mk_domain_alignment_fasta(query_result, config.domain_alignment_offset)
+                    fasta = mk_domain_alignment_fasta(
+                        query_result, config.domain_alignment_offset
+                    )
                 except ValueError as e:
                     logger.warning(e)
                     continue
@@ -263,7 +296,6 @@ def run(args: List[str]) -> None:
             case _:
                 logger.error(f"Sequence kind '{config.seq_kind}' not recognized.")
                 sys.exit(1)
-
 
         try:
             if isinstance(fasta, list):
@@ -280,4 +312,3 @@ def run(args: List[str]) -> None:
 
 if __name__ == "__main__":
     run(sys.argv[1:])
-

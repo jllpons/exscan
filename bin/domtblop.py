@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+__version__ = "0.1.0"
+
 """
 Perform different operations on query results from a hmmscan domtblout files.
 
@@ -26,67 +28,77 @@ Usage: domtblop.py <operation> [options]
 
 Options:
     -h, --help          Show this help message and exit.
+    -v, --version       Show version and exit.
 """
-
 
 import sys
 
 
 def main():
-
     argn = len(sys.argv)
     if argn == 1:
         print(__doc__)
         sys.exit(1)
 
-
     cmd = sys.argv[1]
-
 
     if cmd == "-h" or cmd == "--help" or cmd == "help":
         print(__doc__)
         sys.exit(1)
 
+    elif cmd == "-v" or cmd == "--version":
+        print(f"domtblop.py v{__version__}")
+        sys.exit
+
     elif cmd == "parser":
         from domtblop_parser import run
+
         run(sys.argv[2:])
 
     elif cmd == "filter":
         from domtblop_filter import run
+
         run(sys.argv[2:])
 
     elif cmd == "group":
         from domtblop_group import run
+
         run(sys.argv[2:])
 
     elif cmd == "gffintersect":
         from domtblop_gffintersect import run
+
         run(sys.argv[2:])
 
     elif cmd == "togff":
         from domtblop_togff import run
+
         run(sys.argv[2:])
 
     elif cmd == "tobed":
         from domtblop_tobed import run
+
         run(sys.argv[2:])
 
     elif cmd == "tofasta":
         from domtblop_tofasta import run
+
         run(sys.argv[2:])
 
     elif cmd == "addseq":
         from domtblop_addseq import run
+
         run(sys.argv[2:])
 
     elif cmd == "dummy":
         from domtblop_dummy import run
+
         run(sys.argv[2:])
 
     elif cmd == "plot":
         from domtblop_plot import run
-        run(sys.argv[2:])
 
+        run(sys.argv[2:])
 
     else:
         print(__doc__)
@@ -94,5 +106,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

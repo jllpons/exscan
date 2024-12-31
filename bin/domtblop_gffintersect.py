@@ -38,20 +38,20 @@ import logging
 import os
 import sys
 from typing import (
-        List,
-        Tuple,
-        )
+    List,
+    Tuple,
+)
 
 from domtblop_parser import (
-        CustomEncoder,
-        GffFeature,
-        HmmscanQueryResult,
-        UnexpectedQueryIdFormat,
-        )
+    CustomEncoder,
+    GffFeature,
+    HmmscanQueryResult,
+    UnexpectedQueryIdFormat,
+)
 from domtblop_utils import (
-        setup_logger,
-        read_input,
-    )
+    setup_logger,
+    read_input,
+)
 
 
 @dataclass
@@ -66,7 +66,6 @@ class BedtoolsIntersectOutputRow:
 
     a: GffFeature
     b: GffFeature
-
 
     @classmethod
     def from_bedtools_intersect(cls, line: str) -> "BedtoolsIntersectOutputRow":
@@ -107,34 +106,30 @@ def setup_argparse() -> argparse.ArgumentParser:
         type=str,
         nargs="?",
         default="-",
-        )
+    )
     parser.add_argument(
         "bedtools_intersect_output",
         metavar="<bedtools_intersect_output>",
         type=str,
         nargs="?",
-        )
+    )
 
     # Optional arguments
     parser.add_argument(
-        "-l", "--loglevel",
+        "-l",
+        "--loglevel",
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
-    parser.add_argument(
-        "-h", "--help",
-        action="store_true",
-        default=False
-    )
+    parser.add_argument("-h", "--help", action="store_true", default=False)
 
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[
-        argparse.Namespace,
-        logging.Logger
-        ]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -158,45 +153,42 @@ def setup_config(args: List[str],) -> Tuple[
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
-        logger.error(
-            f"File {config.serialized_domtblout} "
-            "does not exist."
-        )
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
+        logger.error(f"File {config.serialized_domtblout} " "does not exist.")
         raise FileNotFoundError
 
     if not config.bedtools_intersect_output:
         logger.error("No bedtools intersect output provided.")
         raise ValueError
 
-    if not os.path.exists(config.bedtools_intersect_output) and config.bedtools_intersect_output != "-":
-        logger.error(
-            f"File {config.bedtools_intersect_output} "
-            "does not exist."
-        )
+    if (
+        not os.path.exists(config.bedtools_intersect_output)
+        and config.bedtools_intersect_output != "-"
+    ):
+        logger.error(f"File {config.bedtools_intersect_output} " "does not exist.")
         raise FileNotFoundError
-
 
     return config, logger
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
         sys.exit(1)
     logger.info(
-        "Running with the following configuration: " 
-        + ", ".join(f"{k}={v}" for k,v in config.__dict__.items())
-        )
+        "Running with the following configuration: "
+        + ", ".join(f"{k}={v}" for k, v in config.__dict__.items())
+    )
 
     try:
         serialized_domtblout = read_input(config.serialized_domtblout)
         bedtools_intersect_file_handle = read_input(config.bedtools_intersect_output)
     except FileNotFoundError:
         sys.exit(1)
-
 
     # Iterate over the serialized domtblout file and parse each line as a HmmscanQueryResult
     query_results = []
@@ -210,12 +202,10 @@ def run(args: List[str]) -> None:
         logger.debug(f"Succesfully parsed query result: {query_result}")
         query_results.append(query_result)
 
-
     # Create a hashmap to quickly find the index of a query result by its query_id
     query_results_index_hashmap = dict()
     for i, query_result in enumerate(query_results):
-        query_results_index_hashmap[query_result.query_id.replace('"', '')] = i
-
+        query_results_index_hashmap[query_result.query_id.replace('"', "")] = i
 
     # Iterate over the bedtools intersect output and add the intersecting features to the corresponding serialized query result
     for line in bedtools_intersect_file_handle:
@@ -229,7 +219,7 @@ def run(args: List[str]) -> None:
             sys.exit(1)
 
         intersect_a_id = intersect.a.attributes.get("ID")
-        intersect_a_id = intersect_a_id.replace('"', '') if intersect_a_id else None
+        intersect_a_id = intersect_a_id.replace('"', "") if intersect_a_id else None
         if not intersect_a_id:
             logger.error(f"Feature A does not have an ID in attributes: {intersect.a}")
             logger.error(f"Problematic line: {line}")
@@ -243,8 +233,9 @@ def run(args: List[str]) -> None:
         if query_results[i].gff_intersecting_features is None:
             query_results[i].gff_intersecting_features = []
 
-        query_results[query_results_index_hashmap[intersect_a_id]].gff_intersecting_features.append(intersect.b)
-
+        query_results[
+            query_results_index_hashmap[intersect_a_id]
+        ].gff_intersecting_features.append(intersect.b)
 
     # Print the updated query results
     for query_result in query_results:
@@ -254,4 +245,3 @@ def run(args: List[str]) -> None:
             devnull = os.open(os.devnull, os.O_WRONLY)
             os.dup2(devnull, sys.stdout.fileno())
             sys.exit(1)
-

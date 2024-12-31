@@ -19,7 +19,7 @@ process DOMTBLOP_ADDSEQ {
     script:
     if (type == 'nucleotide')
         """
-        domtblop.py addseq --nucleotide ${qresults_serialized} ${fasta} > ${qresults_serialized.baseName}.addseq.json
+        domtblop.py addseq ${qresults_serialized} ${fasta} --seq-type ${type} > ${qresults_serialized.baseName}.addseq.json
 
         cat <<-END_VERSIONS > versions.yml
         ${task.process}:
@@ -29,7 +29,7 @@ process DOMTBLOP_ADDSEQ {
         """
     else
         """
-        domtblop.py addseq ${qresults_serialized} ${fasta} > ${qresults_serialized.baseName}.addseq.json
+        domtblop.py addseq ${qresults_serialized} ${fasta} --seq-type ${type} > ${qresults_serialized.baseName}.addseq.json
 
         cat <<-END_VERSIONS > versions.yml
         ${task.process}:
@@ -37,6 +37,50 @@ process DOMTBLOP_ADDSEQ {
             Biopython: \$(python -c "import Bio; print(Bio.__version__)")
         END_VERSIONS
         """
+}
+
+// WARNING: Processes in the workflow cannot share the same name, so if used,
+//          different filtering processes should be encapsulated in different subworkflows.
+//          Not used atm
+process DOMTBLOP_FILTER {
+    label 'process_single'
+
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
+        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+
+    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.filter.json"
+
+    input:
+    path qresults_serialized
+    val  filter
+    val  value
+
+    output:
+    path '*.filter.json', emit: qresults_serialized
+    path 'versions.yml', emit: versions
+
+    script:
+
+    switch(filter){
+        case 'dom-ievalue':
+            """
+            domtblop.py filter --dom-ievalue ${value} ${qresults_serialized} > ${qresults_serialized.baseName}.filter.json
+            """
+
+        case 'min-alignment-length':
+            """
+            domtblop.py filter --min-alignment-length ${value} ${qresults_serialized} > ${qresults_serialized.baseName}.filter.json
+            """
+
+        case 'keep-only-intersect':
+            """
+            domtblop.py filter --keep-only-intersect ${qresults_serialized} > ${qresults_serialized.baseName}.filter.json
+            """
+
+        default:
+            log.error("Invalid filter: ${filter}")
+    }
 }
 
 
@@ -199,6 +243,7 @@ process DOMTBLOP_PARSER {
 
     input:
     path hmmscan_domtblout
+    val  sequence_type
 
     output:
     path '*qresults_serialized.json',  emit: qresults_serialized
@@ -206,7 +251,7 @@ process DOMTBLOP_PARSER {
 
     script:
     """
-    domtblop.py parser ${hmmscan_domtblout} > ${hmmscan_domtblout.baseName}.qresults_serialized.json
+    domtblop.py parser ${hmmscan_domtblout} --seq-type ${sequence_type} > ${hmmscan_domtblout.baseName}.qresults_serialized.json
 
     cat <<-END_VERSIONS > versions.yml
     ${task.process}:
@@ -267,7 +312,6 @@ process DOMTBLOP_TOFASTA {
     domtblop.py tofasta ${qresults_serialized} --seq-kind nucleotide > ${qresults_serialized.baseName}.nucleotide.fasta
     domtblop.py tofasta ${qresults_serialized} --seq-kind protein > ${qresults_serialized.baseName}.protein.fasta
     domtblop.py tofasta ${qresults_serialized} --seq-kind domain-alignment > ${qresults_serialized.baseName}.domain_alignment.fasta
-    domtblop.py tofasta ${qresults_serialized} --seq-kind domain-alignment --domain-alignment-offset 10 > ${qresults_serialized.baseName}.domain_alignment_offset.fasta
 
     cat <<-END_VERSIONS > versions.yml
     ${task.process}:

@@ -1,4 +1,4 @@
-# exscan
+# exscan.nf - An extended sequence scanner
 
 > [!IMPORTANT]
 > This project is still under development.
@@ -6,23 +6,25 @@
 
 ## Introduction
 
-**`exscan`** is a bioinformatics pipeline designed to scan biological sequences
-for specific exons using profile hidden Markov models (HMMs). The pipeline
-facilitates the identification and analysis of exonic regions, with a focus on
-aiding in genomic annotation and comparative genomics studies.
+**`exscan.nf`** is a bioinformatics pipeline designed to scan **DNA or protein** sequences for key features of interest, with a focus on aiding in genomic annotation and comparative genomics studies.
 
 The pipeline is implemented using [Nextflow](https://www.nextflow.io), and
 performs the following steps:
 
-1. Translate all ORFs of a nucleotide sequence ([`seqkit2`](< https://doi.org/10.1002/imt2.191>)).
-2. Query each ORFs against a profile HMM database ([`hmmscan`](<http://hmmer.org/>))
-3. Perform different operations on each query result. ([`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>), [`jq`](<https://jqlang.github.io/jq/>), [`bedtools`](<https://bedtools.readthedocs.io/en/latest/>)). Operations include:
+1. **Translation of ORFs (if input is DNA)**  
+   Uses [`seqkit2`](<https://doi.org/10.1002/imt2.191>) to translate sequences into all possible open reading frames (ORFs).
+
+2. **Profile HMM Search**  
+   Queries each translated ORF or raw protein sequence against a profile HMM database using [`hmmscan`](<http://hmmer.org/>).
+
+3. **Perform different operations on each query result**. Operations include: 
     - Filtering the results by e-value, score, and coverage.
-    - Selecting the best hit for each ORF.
-    - Comparing hits with a GFF file to retrain the features intersecting with
-      the hits.
-    - Generating FASTA files contaning sequences of hits, corresponding ORFs,
-      or the original sequence.
+    - Selecting the best hit for each ORF, sequence fragment, or full protein
+      sequence.
+    - Comparing hits with a GFF file to retrain the features intersecting with the hits.
+    - Generating FASTA files contaning aligned sequences for each hit, corresponding ORFs, or the original sequence.
+
+All operations are handled via [`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>), [`jq`](<https://jqlang.github.io/jq/>), and [`bedtools`](<https://bedtools.readthedocs.io/en/latest/>).
 
 ## Usage
 

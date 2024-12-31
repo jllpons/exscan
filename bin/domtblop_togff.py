@@ -29,19 +29,19 @@ import logging
 import os
 import sys
 from typing import (
-        List,
-        Tuple,
-        )
+    List,
+    Tuple,
+)
 
 from domtblop_parser import (
-        GffFeature,
-        HmmscanQueryResult,
-        UnexpectedQueryIdFormat,
-        )
+    GffFeature,
+    HmmscanQueryResult,
+    UnexpectedQueryIdFormat,
+)
 from domtblop_utils import (
-        setup_logger,
-        read_input,
-    )
+    setup_logger,
+    read_input,
+)
 
 
 def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]:
@@ -70,11 +70,18 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
     for domain_hit in query_result.domain_hits:
         for domain_alignment in domain_hit.domain_alignments:
             for domain_alignment_fragment in domain_alignment.alignment_fragments:
-
                 type_ = "hmmscan_hit_alignment"
                 # NOTE: hmmscan tblout seems to be 1-based, so I'll keep it that way
-                start = domain_alignment_fragment.sequence_start_in_parent if domain_alignment_fragment.sequence_start_in_parent else -1
-                end = domain_alignment_fragment.sequence_end_in_parent if domain_alignment_fragment.sequence_end_in_parent else -1
+                start = (
+                    domain_alignment_fragment.sequence_start_in_parent
+                    if domain_alignment_fragment.sequence_start_in_parent
+                    else -1
+                )
+                end = (
+                    domain_alignment_fragment.sequence_end_in_parent
+                    if domain_alignment_fragment.sequence_end_in_parent
+                    else -1
+                )
                 score = domain_alignment.independent_evalue
                 attributes = {
                     "ID": f'"{query_result.query_id}"',
@@ -103,16 +110,16 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
     return features
 
 
-def gff3_from_query_result_intersecting(query_result: HmmscanQueryResult) -> List[GffFeature]:
-    """
-    """
+def gff3_from_query_result_intersecting(
+    query_result: HmmscanQueryResult,
+) -> List[GffFeature]:
+    """ """
     features = []
 
     if not query_result.gff_intersecting_features:
         return features
 
     for intersecting_gff in query_result.gff_intersecting_features:
-
         features.append(
             GffFeature(
                 seqid=intersecting_gff.seqid,
@@ -124,12 +131,10 @@ def gff3_from_query_result_intersecting(query_result: HmmscanQueryResult) -> Lis
                 strand=intersecting_gff.strand,
                 phase=intersecting_gff.phase,
                 attributes=intersecting_gff.attributes,
-                )
             )
-
+        )
 
     return features
-
 
 
 def setup_argparse() -> argparse.ArgumentParser:
@@ -151,7 +156,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         type=str,
         nargs="?",
         default="-",
-        )
+    )
 
     # Optional arguments
     parser.add_argument(
@@ -161,24 +166,20 @@ def setup_argparse() -> argparse.ArgumentParser:
         help="Output the intersecting of each query result instead",
     )
     parser.add_argument(
-        "-l", "--loglevel",
+        "-l",
+        "--loglevel",
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
-    parser.add_argument(
-        "-h", "--help",
-        action="store_true",
-        default=False
-    )
+    parser.add_argument("-h", "--help", action="store_true", default=False)
 
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[
-        argparse.Namespace,
-        logging.Logger
-        ]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -202,27 +203,28 @@ def setup_config(args: List[str],) -> Tuple[
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
         logger.error(
             f"Serialized domtblout file '{config.serialized_domtblout}' "
             "does not exist."
         )
         raise FileNotFoundError
 
-
     return config, logger
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
         sys.exit(1)
     logger.info(
-        "Running with the following configuration: " 
-        + ", ".join(f"{k}={v}" for k,v in config.__dict__.items())
-        )
+        "Running with the following configuration: "
+        + ", ".join(f"{k}={v}" for k, v in config.__dict__.items())
+    )
 
     try:
         file_handle = read_input(config.serialized_domtblout)
@@ -230,7 +232,6 @@ def run(args: List[str]) -> None:
         sys.exit(1)
 
     for line in file_handle:
-
         try:
             query_result = HmmscanQueryResult.from_json(json.loads(line))
         except UnexpectedQueryIdFormat as e:
@@ -239,7 +240,6 @@ def run(args: List[str]) -> None:
 
         # TODO: Handle groups?
         try:
-
             if config.intersecting_features:
                 features = gff3_from_query_result_intersecting(query_result)
 
@@ -258,4 +258,3 @@ def run(args: List[str]) -> None:
                 devnull = os.open(os.devnull, os.O_WRONLY)
                 os.dup2(devnull, sys.stdout.fileno())
                 sys.exit(1)
-

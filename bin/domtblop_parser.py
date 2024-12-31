@@ -3,7 +3,13 @@
 """
 domtblop parser: Parse and serialize hmmscan domtblout query results to JSON.
 
-Usage: domtblop.py parse <domtblout>
+Usage: domtblop.py parse <domtblout> --seq-type <sequence type>
+
+Arguments:
+    domtblout   Path to the hmmscan domtblout file.
+    --seq-type  Type of the sequence used in the hmmscan search.
+                Sequence types: {dna, rna, protein}
+
 
 Options:
     -l --loglevel   Log level (default: INFO).
@@ -13,29 +19,35 @@ Options:
 
 import argparse
 from dataclasses import dataclass, field
+from datetime import datetime
 import json
 import logging
 import os
 import sys
 from typing import (
-        Dict,
-        Generator,
-        List,
-        Tuple,
-    )
+    Dict,
+    Generator,
+    List,
+    Tuple,
+)
 
 from Bio.SearchIO import parse
 from Bio.SearchIO._model import QueryResult
 
+from domtblop import __version__
 from domtblop_utils import (
-        setup_logger,
-    )
+    setup_logger,
+)
+
+
+SCHEMA_VERSION = "0.1.0"
 
 
 class UnexpectedQueryIdFormat(Exception):
     """
     Raised when the hit id is not in the expected format.
     """
+
     pass
 
 
@@ -43,10 +55,77 @@ class CustomEncoder(json.JSONEncoder):
     """
     A workaround to serialize dataclasses to JSON if they have a `to_json` method.
     """
+
     def default(self, obj):
         if hasattr(obj, "to_json"):
             return obj.to_json()
         return super().default(obj)
+
+
+@dataclass
+class QueryResultMetadata:
+    """
+    Holds metadata information about a query result.
+
+    Attributes:
+        schema_version (str): Version of the schema used to serialize the query result.
+    """
+
+    schema_version: str = SCHEMA_VERSION
+    domtblop_version: str = __version__
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    last_modified_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    parameters_used: list = field(default_factory=list)
+
+    def to_json(self) -> Dict:
+        """
+        Serialize the metadata into a JSON struct.
+
+        Returns:
+            Dict: JSON struct of the metadata.
+        """
+        return {
+            "schema_version": self.schema_version,
+            "domtblop_version": self.domtblop_version,
+            "created_at": self.created_at,
+            "last_modified_at": self.last_modified_at,
+            "parameters_used": [i for i in self.parameters_used],
+        }
+
+    @classmethod
+    def from_json(cls, json_data: Dict) -> "QueryResultMetadata":
+        """
+        Deserialize a JSON struct into a QueryResultMetadata.
+
+        Args:
+            json_data (Dict): JSON string to deserialize.
+
+        Returns:
+            QueryResultMetadata: Deserialized QueryResultMetadata.
+
+        Raises:
+            KeyError: If a required key is missing in the JSON struct.
+        """
+
+        try:
+            schema_version = json_data["schema_version"]
+            domtblop_version = json_data["domtblop_version"]
+            created_at = json_data["created_at"]
+            last_modified_at = json_data["last_modified_at"]
+            parameters_used = json_data["parameters_used"]
+
+        except KeyError as e:
+            raise KeyError(f"Missing key: {e}")
+
+        metadata = cls(
+            schema_version=schema_version,
+            domtblop_version=domtblop_version,
+            created_at=created_at,
+            last_modified_at=last_modified_at,
+            parameters_used=parameters_used,
+        )
+
+        return metadata
 
 
 @dataclass
@@ -61,11 +140,62 @@ class ParentSequence:
         strand (str): Strand information ('+' or '-').
         frame (int): Reading frame of the hit.
     """
+
     sequence_id: str
     start: int
     end: int
     strand: str
     frame: int
+
+    def to_json(self) -> Dict:
+        """
+        Serialize the parent sequence into a JSON struct.
+
+        Returns:
+            Dict: JSON struct of the parent sequence.
+        """
+        return {
+            "sequence_id": self.sequence_id,
+            "start": self.start,
+            "end": self.end,
+            "strand": self.strand,
+            "frame": self.frame,
+        }
+
+    @classmethod
+    def from_json(cls, json_data: Dict) -> "ParentSequence":
+        """
+        Deserialize a JSON struct into a ParentSequence.
+
+        Args:
+            json_data (Dict): JSON string to deserialize.
+
+        Returns:
+            ParentSequence: Deserialized ParentSequence.
+
+        Raises:
+            KeyError: If a required key is missing in the JSON struct.
+        """
+
+        try:
+            sequence_id = json_data["sequence_id"]
+            start = json_data["start"]
+            end = json_data["end"]
+            strand = json_data["strand"]
+            frame = json_data["frame"]
+
+        except KeyError as e:
+            raise KeyError(f"Missing key: {e}")
+
+        parent_sequence = cls(
+            sequence_id=sequence_id,
+            start=start,
+            end=end,
+            strand=strand,
+            frame=frame,
+        )
+
+        return parent_sequence
 
 
 @dataclass
@@ -84,6 +214,7 @@ class GffFeature:
         phase (int | str): Phase of the feature.
         attributes (Dict[str, str]): Additional attributes of the feature
     """
+
     seqid: str
     source: str
     type_: str
@@ -93,7 +224,6 @@ class GffFeature:
     strand: str
     phase: int | str
     attributes: Dict[str, str]
-
 
     def to_json(self) -> Dict:
         """
@@ -111,9 +241,8 @@ class GffFeature:
             "score": self.score,
             "strand": self.strand,
             "phase": self.phase,
-            "attributes": self.attributes
+            "attributes": self.attributes,
         }
-
 
     @classmethod
     def from_json(cls, json_data: Dict) -> "GffFeature":
@@ -156,11 +285,10 @@ class GffFeature:
             score=score,
             strand=strand,
             phase=phase,
-            attributes=attributes
+            attributes=attributes,
         )
 
         return feature
-
 
     @classmethod
     def from_gff3(cls, line: str) -> "GffFeature":
@@ -177,7 +305,7 @@ class GffFeature:
         def _parse_attributes(attributes: str) -> dict:
             fields = attributes.split(";")
             return {
-                field.split("=")[0].replace('"', ''): '='.join(field.split("=")[1:])
+                field.split("=")[0].replace('"', ""): "=".join(field.split("=")[1:])
                 for field in fields
                 if field
             }
@@ -197,7 +325,6 @@ class GffFeature:
             attributes=attributes,
         )
 
-
     def to_gff3(self) -> str:
         """
         Serialize the GFF feature into a GFF3 line.
@@ -205,9 +332,7 @@ class GffFeature:
         Returns:
             str: GFF3 line of the GFF feature.
         """
-        attributes = ";".join(
-            f"{k}={v}" for k, v in self.attributes.items()
-        )
+        attributes = ";".join(f"{k}={v}" for k, v in self.attributes.items())
 
         return "\t".join(
             [
@@ -242,9 +367,7 @@ def print_gff3_feature(feature: GffFeature) -> None:
                 str(feature.score),
                 feature.strand,
                 str(feature.phase),
-                ";".join(
-                    f"{k}={v}" for k, v in feature.attributes.items()
-                ),
+                ";".join(f"{k}={v}" for k, v in feature.attributes.items()),
             ]
         )
     )
@@ -266,6 +389,7 @@ class DomainAlignmentFragment:
         sequence_end_in_parent (None | int): End position in the parent sequence
         sequence (None | str): The sequence of the fragment.
     """
+
     domain_start: int
     domain_end: int
     domain_strand: str
@@ -293,9 +417,8 @@ class DomainAlignmentFragment:
             "sequence_strand": self.sequence_strand,
             "sequence_start_in_parent": self.sequence_start_in_parent,
             "sequence_end_in_parent": self.sequence_end_in_parent,
-            "sequence": self.sequence
+            "sequence": self.sequence,
         }
-
 
     @classmethod
     def from_json(cls, json_data: Dict) -> "DomainAlignmentFragment":
@@ -335,7 +458,7 @@ class DomainAlignmentFragment:
             sequence_strand=sequence_strand,
             sequence_start_in_parent=sequence_start_in_parent,
             sequence_end_in_parent=sequence_end_in_parent,
-            sequence=sequence
+            sequence=sequence,
         )
 
         return hspfrag
@@ -357,6 +480,7 @@ class HmmscanDomainAlignment:
         envelope_end (int): End of the envelope region in the sequence.
         alignment_fragments (List[DomainAlignmentFragment]): List of alignment fragments.
     """
+
     independent_evalue: float
     conditional_evalue: float
     average_alignment_accuracy: float
@@ -366,7 +490,6 @@ class HmmscanDomainAlignment:
     envelope_start: int
     envelope_end: int
     alignment_fragments: List[DomainAlignmentFragment] = field(default_factory=list)
-
 
     def to_json(self) -> Dict:
         """
@@ -384,9 +507,8 @@ class HmmscanDomainAlignment:
             "domain_number": self.domain_number,
             "envelope_start": self.envelope_start,
             "envelope_end": self.envelope_end,
-            "alignment_fragments": [i.to_json() for i in self.alignment_fragments]
-            }
-
+            "alignment_fragments": [i.to_json() for i in self.alignment_fragments],
+        }
 
     @classmethod
     def from_json(cls, json_data: Dict) -> "HmmscanDomainAlignment":
@@ -418,19 +540,20 @@ class HmmscanDomainAlignment:
             raise KeyError(f"Missing key: {e}")
 
         domain_alignment = cls(
-                independent_evalue=independent_evalue,
-                conditional_evalue=conditional_evalue,
-                average_alignment_accuracy=average_alignment_accuracy,
-                bias=bias,
-                bit_score=bit_score,
-                domain_number=domain_number,
-                envelope_start=envelope_start,
-                envelope_end=envelope_end,
-                alignment_fragments=[DomainAlignmentFragment.from_json(i) for i in alignment_fragments]
+            independent_evalue=independent_evalue,
+            conditional_evalue=conditional_evalue,
+            average_alignment_accuracy=average_alignment_accuracy,
+            bias=bias,
+            bit_score=bit_score,
+            domain_number=domain_number,
+            envelope_start=envelope_start,
+            envelope_end=envelope_end,
+            alignment_fragments=[
+                DomainAlignmentFragment.from_json(i) for i in alignment_fragments
+            ],
         )
 
         return domain_alignment
-
 
     def has_domain_alignment_fragments(self) -> bool:
         """
@@ -445,17 +568,18 @@ class HmmscanDomainAlignment:
 @dataclass
 class HmmscanDomainHit:
     """
-Represents a domain hit from an hmmscan result.
+    Represents a domain hit from an hmmscan result.
 
-    Attributes:
-        accession (str): Accession number of the domain.
-        name (str): Name or identifier of the domain.
-        description (str): Description of the domain.
-        full_sequence_evalue (float): E-value for the full sequence.
-        full_sequence_score (float): Score for the full sequence.
-        bias (float): Bias score for the domain hit.
-        domain_alignments (List[HmmscanDomainAlignment]): List of domain alignments.
+        Attributes:
+            accession (str): Accession number of the domain.
+            name (str): Name or identifier of the domain.
+            description (str): Description of the domain.
+            full_sequence_evalue (float): E-value for the full sequence.
+            full_sequence_score (float): Score for the full sequence.
+            bias (float): Bias score for the domain hit.
+            domain_alignments (List[HmmscanDomainAlignment]): List of domain alignments.
     """
+
     accession: str
     name: str
     description: str
@@ -478,9 +602,8 @@ Represents a domain hit from an hmmscan result.
             "full_sequence_evalue": self.full_sequence_evalue,
             "full_sequence_score": self.full_sequence_score,
             "bias": self.bias,
-            "domain_alignments": [i.to_json() for i in self.domain_alignments]
-            }
-
+            "domain_alignments": [i.to_json() for i in self.domain_alignments],
+        }
 
     @classmethod
     def from_json(cls, json_data: Dict) -> "HmmscanDomainHit":
@@ -516,11 +639,12 @@ Represents a domain hit from an hmmscan result.
             full_sequence_evalue=full_sequence_evalue,
             full_sequence_score=full_sequence_score,
             bias=bias,
-            domain_alignments=[HmmscanDomainAlignment.from_json(i) for i in domain_alignments]
+            domain_alignments=[
+                HmmscanDomainAlignment.from_json(i) for i in domain_alignments
+            ],
         )
 
         return hit
-
 
     def has_domain_alignments(self) -> bool:
         """
@@ -533,7 +657,7 @@ Represents a domain hit from an hmmscan result.
 
 
 @dataclass
-class GroupedQueryResults:
+class Group:
     """
     Holds information about a group of HmmscanQueryResults that are found within
     *n* distance form each other according to the parent sequence start and end
@@ -546,12 +670,12 @@ class GroupedQueryResults:
         n_hits_pos_strand (int):
         n_hits_neg_strand (int):
     """
-    group_id: str
+
+    id: str
     start: int
     end: int
-    n_hits_pos_strand: int
-    n_hits_neg_strand: int
-
+    n_hits_on_pos_strand: int
+    n_hits_on_neg_strand: int
 
     def to_json(self) -> Dict:
         """
@@ -562,18 +686,17 @@ class GroupedQueryResults:
         """
 
         return {
-                "group_id": self.group_id,
-                "start": self.start,
-                "end": self.end,
-                "n_hits_pos_strand": self.n_hits_pos_strand,
-                "n_hits_neg_strand": self.n_hits_neg_strand,
-            }
-
+            "id": self.id,
+            "start": self.start,
+            "end": self.end,
+            "n_hits_on_pos_strand": self.n_hits_on_pos_strand,
+            "n_hits_on_neg_strand": self.n_hits_on_neg_strand,
+        }
 
     @classmethod
-    def from_json(cls, json_data: Dict) -> "GroupedQueryResults":
+    def from_json(cls, json_data: Dict) -> "Group":
         """
-        Deserialize a JSON struct into a GroupedQueryResults.
+        Deserialize a JSON struct into a Group.
 
         Args:
             json_data (Dict): JSON string to deserialize.
@@ -586,21 +709,21 @@ class GroupedQueryResults:
         """
 
         try:
-            group_id = json_data["group_id"]
+            id = json_data["id"]
             group_start = json_data["start"]
             group_end = json_data["end"]
-            n_hits_pos_strand = json_data["n_hits_pos_strand"]
-            n_hits_neg_strand = json_data["n_hits_neg_strand"]
+            n_hits_on_pos_strand = json_data["n_hits_on_pos_strand"]
+            n_hits_on_neg_strand = json_data["n_hits_on_neg_strand"]
 
         except KeyError as e:
             raise KeyError(f"Missing key: {e}")
 
         grouped_query_result = cls(
-                group_id=group_id,
-                start=group_start,
-                end=group_end,
-                n_hits_pos_strand=n_hits_pos_strand,
-                n_hits_neg_strand=n_hits_neg_strand
+            id=id,
+            start=group_start,
+            end=group_end,
+            n_hits_on_pos_strand=n_hits_on_pos_strand,
+            n_hits_on_neg_strand=n_hits_on_neg_strand,
         )
 
         return grouped_query_result
@@ -619,14 +742,17 @@ class HmmscanQueryResult:
         domain_hits (List[HmmscanDomainHit]): List of domain hits found in the query.
         group (None | GroupedQueryResults): Data about a set of hits within certain distance.
     """
+
+    metadata: QueryResultMetadata
     query_id: str
-    aminoacid_sequence: str | None = None
-    nucleotide_sequence: str | None = None
-    parent_sequence: ParentSequence = field(init=False)
+    sequence_type: str
+    protein_sequence: str | None = None
+    source_sequence: str | None = None
+    parent_sequence: ParentSequence | None = None
     domain_hits: List[HmmscanDomainHit] = field(default_factory=list)
 
-    group: None | GroupedQueryResults = None
-    gff_intersecting_features: None | List[GffFeature] = None
+    intersecting_features: None | List[GffFeature] = None
+    group: None | Group = None
 
     def __post_init__(self):
         """
@@ -654,36 +780,36 @@ class HmmscanQueryResult:
                 start: The start position of the hit.
                 end: The end position of the hit.
         """
+        self.check_sequence_type()
 
-        if "_frame=" not in self.query_id:
-            raise UnexpectedQueryIdFormat("Query id must contain '_frame=', '_start=', and '_end='")
+        if self.sequence_type in ["dna", "rna"]:
+            if "_frame=" not in self.query_id:
+                raise UnexpectedQueryIdFormat(
+                    "Query id must contain '_frame=', '_start=', and '_end='"
+                )
 
-        parts = self.query_id.split("_")
-        sequence_id = "_".join(parts[:-3])
+            parts = self.query_id.split("_")
+            sequence_id = "_".join(parts[:-3])
 
-        frame_part, start_part, end_part = parts[-3:]
-        try:
-            frame = int(frame_part.split("=")[1])
-            start = int(start_part.split("=")[1])
-            end = int(end_part.split("=")[1])
-        except ValueError:
-            raise UnexpectedQueryIdFormat("Start and end positions must be integers")
+            frame_part, start_part, end_part = parts[-3:]
+            try:
+                frame = int(frame_part.split("=")[1])
+                start = int(start_part.split("=")[1])
+                end = int(end_part.split("=")[1])
+            except ValueError:
+                raise UnexpectedQueryIdFormat(
+                    "Start and end positions must be integers"
+                )
 
-        strand = "+" if frame >= 0  else "-"
-        #strand = "+"
-        ## if frame is negative, the hit is on the reverse strand
-        ## so we need to swap the start and end positions
-        #if frame < 0:
-            #strand = "-"
-            #start, end = end, start
+            strand = "+" if frame >= 0 else "-"
 
-        self.parent_sequence = ParentSequence(
-            sequence_id=sequence_id,
-            start=start,
-            end=end,
-            strand=strand,
-            frame=frame,
-        )
+            self.parent_sequence = ParentSequence(
+                sequence_id=sequence_id,
+                start=start,
+                end=end,
+                strand=strand,
+                frame=frame,
+            )
 
     def to_json(self) -> Dict:
         """
@@ -694,19 +820,19 @@ class HmmscanQueryResult:
         """
 
         return {
-                "query_id": self.query_id,
-                "aminoacid_sequence": self.aminoacid_sequence,
-                "nucleotide_sequence": self.nucleotide_sequence,
-                "parent_sequence": {
-                    "sequence_id": self.parent_sequence.sequence_id,
-                    "start": self.parent_sequence.start,
-                    "end": self.parent_sequence.end,
-                    "strand": self.parent_sequence.strand,
-                    "frame": self.parent_sequence.frame,
-                },
-                "domain_hits": [i.to_json() for i in self.domain_hits],
-                "gff_intersecting_features": [i.to_json() for i in self.gff_intersecting_features] if self.gff_intersecting_features else None,
-                "group": self.group.to_json() if self.group else None
+            "metadata": self.metadata.to_json(),
+            "query_id": self.query_id,
+            "sequence_type": self.sequence_type,
+            "protein_sequence": self.protein_sequence,
+            "source_sequence": self.source_sequence,
+            "parent_sequence": self.parent_sequence.to_json()
+            if self.parent_sequence
+            else None,
+            "domain_hits": [i.to_json() for i in self.domain_hits],
+            "intersecting_features": [i.to_json() for i in self.intersecting_features]
+            if self.intersecting_features
+            else None,
+            "group": self.group.to_json() if self.group else None,
         }
 
     @classmethod
@@ -740,27 +866,53 @@ class HmmscanQueryResult:
         """
 
         try:
+            metadata = json_data["metadata"]
             query_id = json_data["query_id"]
-            aminoacid_sequence = json_data["aminoacid_sequence"]
-            nucleotide_sequence = json_data["nucleotide_sequence"]
+            sequence_type = json_data["sequence_type"]
+            protein_sequence = json_data["protein_sequence"]
+            source_sequence = json_data["source_sequence"]
             domain_hits = json_data["domain_hits"]
-            gf_intersecting_features = json_data["gff_intersecting_features"]
+            intersecting_features = json_data["intersecting_features"]
             group = json_data["group"]
 
         except KeyError as e:
             raise KeyError(f"Missing key: {e}")
 
         query_result = cls(
+            metadata=QueryResultMetadata.from_json(metadata),
             query_id=query_id,
-            aminoacid_sequence=aminoacid_sequence,
-            nucleotide_sequence=nucleotide_sequence,
+            sequence_type=sequence_type,
+            protein_sequence=protein_sequence,
+            source_sequence=source_sequence,
             domain_hits=[HmmscanDomainHit.from_json(i) for i in domain_hits],
-            gff_intersecting_features=[GffFeature.from_json(i) for i in gf_intersecting_features] if gf_intersecting_features else None,
-            group=GroupedQueryResults.from_json(group) if group else None
-            )
+            intersecting_features=[
+                GffFeature.from_json(i) for i in intersecting_features
+            ]
+            if intersecting_features
+            else None,
+            group=Group.from_json(group) if group else None,
+        )
 
         return query_result
 
+    def check_sequence_type(self) -> None:
+        """
+        Check if the sequence type is valid.
+
+        Returns:
+            None
+        """
+        if self.sequence_type not in ["dna", "rna", "protein"]:
+            raise ValueError("Invalid sequence type: {}".format(self.sequence_type))
+
+    def update_modified_at(self) -> None:
+        """
+        Update the modified_at field of the metadata.
+
+        Returns:
+            None
+        """
+        self.metadata.last_modified_at = datetime.now().isoformat()
 
     def has_domain_hits(self) -> bool:
         """
@@ -771,7 +923,6 @@ class HmmscanQueryResult:
         """
         return any(self.domain_hits)
 
-
     def has_intersecting_gff_features(self) -> bool:
         """
         Check if the query result has intersecting GFF features.
@@ -779,11 +930,10 @@ class HmmscanQueryResult:
         Returns:
             bool: True if the query result has intersecting GFF features, False otherwise.
         """
-        if not self.gff_intersecting_features:
+        if not self.intersecting_features:
             return False
 
-        return any(self.gff_intersecting_features)
-
+        return any(self.intersecting_features)
 
     def compute_domain_aligment_fragment_absolut_positions(self) -> None:
         """
@@ -792,22 +942,31 @@ class HmmscanQueryResult:
         Returns:
             None
         """
+        if self.sequence_type not in ["dna", "rna"]:
+            return
+
         strand = self.parent_sequence.strand
 
         for domain_hit in self.domain_hits:
             for domain_alignment in domain_hit.domain_alignments:
                 for fragment in domain_alignment.alignment_fragments:
-
                     # Fragment positions are amino acid based
                     if strand == "+":
-                        fragment.sequence_start_in_parent = self.parent_sequence.start + (fragment.sequence_start * 3)
-                        fragment.sequence_end_in_parent = self.parent_sequence.start + (fragment.sequence_end * 3)
+                        fragment.sequence_start_in_parent = (
+                            self.parent_sequence.start + (fragment.sequence_start * 3)
+                        )
+                        fragment.sequence_end_in_parent = self.parent_sequence.start + (
+                            fragment.sequence_end * 3
+                        )
 
                     elif strand == "-":
-                        #feature_lenght = (fragment.sequence_end - fragment.sequence_start) * 3
-                        fragment.sequence_start_in_parent = self.parent_sequence.end - (fragment.sequence_end * 3)
-                        fragment.sequence_end_in_parent = self.parent_sequence.end - (fragment.sequence_start * 3)
-
+                        # feature_lenght = (fragment.sequence_end - fragment.sequence_start) * 3
+                        fragment.sequence_start_in_parent = self.parent_sequence.end - (
+                            fragment.sequence_end * 3
+                        )
+                        fragment.sequence_end_in_parent = self.parent_sequence.end - (
+                            fragment.sequence_start * 3
+                        )
 
     def mk_domain_alignment_fragment_sequences(self) -> None:
         """
@@ -819,19 +978,21 @@ class HmmscanQueryResult:
         Returns:
             None
         """
-        if not self.aminoacid_sequence:
-            raise ValueError("Parent sequence is missing")
+        if not self.protein_sequence:
+            raise ValueError("Missing protein sequence")
         for domain_hit in self.domain_hits:
             for domain_alignment in domain_hit.domain_alignments:
                 for fragment in domain_alignment.alignment_fragments:
-                    fragment.sequence = self.aminoacid_sequence[fragment.sequence_start:fragment.sequence_end]
+                    fragment.sequence = self.protein_sequence[
+                        fragment.sequence_start : fragment.sequence_end
+                    ]
 
 
 def setup_argparse() -> argparse.ArgumentParser:
     """
-    Sets up the argparse instance for command-line arguments.
-Returns:
-    argparse.ArgumentParser: Configured ArgumentParser instance.
+        Sets up the argparse instance for command-line arguments.
+    Returns:
+        argparse.ArgumentParser: Configured ArgumentParser instance.
     """
 
     parser = argparse.ArgumentParser(
@@ -844,28 +1005,31 @@ Returns:
         metavar="<domtblout>",
         type=str,
         nargs="?",
-        )
+    )
+    parser.add_argument(
+        "--seq-type",
+        metavar="<sequence type>",
+        type=str,
+        choices=["dna", "rna", "protein"],
+        required=True,
+    )
 
     # Optional arguments
     parser.add_argument(
-        "-l", "--loglevel",
+        "-l",
+        "--loglevel",
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
-    parser.add_argument(
-        "-h", "--help",
-        action="store_true",
-        default=False
-    )
+    parser.add_argument("-h", "--help", action="store_true", default=False)
 
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[
-        argparse.Namespace,
-        logging.Logger
-        ]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -894,6 +1058,15 @@ def setup_config(args: List[str],) -> Tuple[
         logger.error("File not found: {}".format(config.domtblout))
         raise FileNotFoundError
 
+    if not config.seq_type:
+        parser.print_help()
+        logger.error("Missig required argument <seq-type>.")
+        raise
+
+    if config.seq_type not in ["dna", "rna", "protein"]:
+        parser.print_help()
+        logger.error("Invalid sequence type: {}".format(config.seq_type))
+        raise ValueError
 
     return config, logger
 
@@ -922,12 +1095,17 @@ def parse_hmmscan_domtblout(hmmscan_domtblout: str) -> Generator:
 
     return queryresult_generator
 
-def parse_query_result(query_result: QueryResult) -> HmmscanQueryResult:
+
+def parse_query_result(
+    query_result: QueryResult,
+    seq_type: str,
+) -> HmmscanQueryResult:
     """
     Parse a QueryResult object from a hmmscan domtbl file.
 
     Args:
         query_result (QueryResult): A QueryResult object from a hmmscan domtbl
+        seq_type (str): The type of the sequence used in the hmmscan search.
 
     Returns:
         HmmscanQueryResult: A parsed HmmscanQueryResult object.
@@ -935,6 +1113,8 @@ def parse_query_result(query_result: QueryResult) -> HmmscanQueryResult:
     Raises:
         UnexpectedHitIdFormat: If the hit id is not in the expected format.
     """
+    if seq_type not in ["dna", "rna", "protein"]:
+        raise ValueError("Invalid sequence type: {}".format(seq_type))
 
     query_id = query_result.id
 
@@ -974,7 +1154,7 @@ def parse_query_result(query_result: QueryResult) -> HmmscanQueryResult:
                         domain_strand=domain_strand,
                         sequence_start=sequence_start,
                         sequence_end=sequence_end,
-                        sequence_strand=sequence_strand
+                        sequence_strand=sequence_strand,
                     )
                 )
 
@@ -988,7 +1168,7 @@ def parse_query_result(query_result: QueryResult) -> HmmscanQueryResult:
                     domain_number=domain_number,
                     envelope_start=envelop_start,
                     envelope_end=envelope_end,
-                    alignment_fragments=alignment_fragments
+                    alignment_fragments=alignment_fragments,
                 )
             )
 
@@ -1000,14 +1180,18 @@ def parse_query_result(query_result: QueryResult) -> HmmscanQueryResult:
                 full_sequence_evalue=full_sequence_evalue,
                 full_sequence_score=full_sequence_score,
                 bias=bias,
-                domain_alignments=domain_alignments
+                domain_alignments=domain_alignments,
             )
         )
 
+    metadata = QueryResultMetadata()
+
     parsed_query_result = HmmscanQueryResult(
+        metadata=metadata,
         query_id=query_id,
-        domain_hits=domain_hits
-        )
+        sequence_type=seq_type,
+        domain_hits=domain_hits,
+    )
 
     # Call any additional methods to compute or modify the data
     parsed_query_result.compute_domain_aligment_fragment_absolut_positions()
@@ -1016,15 +1200,14 @@ def parse_query_result(query_result: QueryResult) -> HmmscanQueryResult:
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
         sys.exit(1)
     logger.info(
         "Running with the following configuration: "
-        + ", ".join(f"{k}={v}" for k,v in config.__dict__.items())
-        )
+        + ", ".join(f"{k}={v}" for k, v in config.__dict__.items())
+    )
 
     try:
         queryresult_generator = parse_hmmscan_domtblout(config.domtblout)
@@ -1033,11 +1216,10 @@ def run(args: List[str]) -> None:
         sys.exit(1)
 
     for query_result in queryresult_generator:
-
         logger.debug(f"Parsing query result: {query_result.id}")
 
         try:
-            parsed_query_result = parse_query_result(query_result)
+            parsed_query_result = parse_query_result(query_result, config.seq_type)
         except (UnexpectedQueryIdFormat, ValueError) as e:
             logger.error("Error: {}".format(e))
             exit(1)
@@ -1045,7 +1227,6 @@ def run(args: List[str]) -> None:
         logger.debug(f"Succesfully parsed query result: {query_result.id}")
 
         try:
-
             print(json.dumps(parsed_query_result, cls=CustomEncoder))
 
         # <https://docs.python.org/3/library/signal.html#note-on-sigpipe>
@@ -1053,4 +1234,3 @@ def run(args: List[str]) -> None:
             devnull = os.open(os.devnull, os.O_WRONLY)
             os.dup2(devnull, sys.stdout.fileno())
             sys.exit(1)
-

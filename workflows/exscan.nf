@@ -14,7 +14,7 @@ workflow EXSCAN {
     take:
     domain_ieval        // (float) - evalue threshold for domain hits
     fasta               // (str) - path to nucleotide fasta file
-    fasta_type          // (str) - type of fasta file (dna, rna, or protein)
+    fasta_type          // (str) - type of fasta file (dna or protein)
     gff_intersect       // (str) - path to gff file to intersect with hmmscan results
     group_distance      // (int) - distance in bp under which two hmmscan hits are grouped
     hmmdb_dir           // (str) - path to HMM database directory
@@ -27,64 +27,40 @@ workflow EXSCAN {
 
     ch_fasta = Channel.fromPath(fasta)
 
-
     if (fasta_type == 'dna') {
         // DESC: Translate all 6 ORFs of a nucleotide fasta file.
-        //       A fasta file containing the translated ORFs is returned.
-        //       One fasta entry = whatever translated sequence bewteen two stop codons.
-        // ARGS: fasta (str)                   - path to nucleotide fasta file
-        // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
+        //       A fasta file containing the translated sequences is returned.
+        //       One fasta entry = whatever sequence could be translated bewteen two stop codons.
+        // ARGS: fasta (str)                   - path to dna fasta file
+        // RETS: ch_fasta_translated (channel) - channel containing path to translated sequences
         //       ch_versions (channel)         - channel containing path to versions.yml
-
-        SEQKIT_TRANSLATE(
-            fasta      = ch_fasta,
-            fasta_type = fasta_type
-        )
-        // After each process, software versions are collected
-        ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
-        ch_fasta_translated = SEQKIT_TRANSLATE.out.fasta_translated
-    } else if (fasta_type == 'rna') {
         SEQKIT_TRANSLATE(
             fasta      = ch_fasta,
             fasta_type = fasta_type
         )
         ch_versions = ch_versions.mix(SEQKIT_TRANSLATE.out.versions)
-        // DESC: If the fasta file is already translated, then we can skip the translation step.
-        //       Still, we need to mock the metadata that seqkit-translate would have appended
-        //       to the fasta headers.
-        // ARGS: fasta (str)                   - path to nucleotide fasta file
-        // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
-        //       ch_versions (channel)         - channel containing path to versions.yml
-        GAWK_HEADER_METADATA(
-            fasta = SEQKIT_TRANSLATE.out.fasta_translated
-        )
-        ch_versions = ch_versions.mix(GAWK_HEADER_METADATA.out.versions)
-        ch_fasta_translated = GAWK_HEADER_METADATA.out.fasta_translated
+        ch_fasta_protein = SEQKIT_TRANSLATE.out.fasta_translated
     } else {
-        GAWK_HEADER_METADATA(
-            fasta = ch_fasta
-        )
-        ch_versions = ch_versions.mix(GAWK_HEADER_METADATA.out.versions)
-        ch_fasta_translated = GAWK_HEADER_METADATA.out.fasta_translated
+        ch_fasta_protein = ch_fasta
     }
 
 
     // DESC: Split large fasta files into smaller files so that they can be processed in parallel by hmmscan.
     //       Note: hmmscan (as far as I know) is very I/O intensive, so parallel > multithreaded.
     // ARGS: fasta (str)                   - path to nucleotide fasta file
-    // RETS: ch_fasta_translated (channel) - channel containing path to translated ORFs
+    // RETS: ch_fasta_protein (channel)    - channel containing path to split fasta files
     //       ch_versions (channel)         - channel containing path to versions.yml
     SEQKIT_SPLIT(
-        fasta = ch_fasta_translated
+        fasta = ch_fasta_protein
     )
     ch_versions = ch_versions.mix(SEQKIT_SPLIT.out.versions)
 
 
-    // DESC: Query each ORF against a domain profile HMM database to identify
+    // DESC: Query each protein sequence against a HMM profile database to identify
     //       potential homologous domains.
-    // ARGS: hmmdb_file (str)               - Name of HMM database file
+    // ARGS: hmmdb_file (str)               - name of HMM database file
     //       hmmdb_dir (str)                - path to HMM database directory
-    //       ch_fasta_translated (channel)  - channel containing path to a structured ORF file
+    //       ch_fasta_protein    (channel)  - channel containing path to a structured ORF file
     // RETS: ch_hmmscan_domtblout (channel) - path to hmmscan domtblout file
     HMMSCAN(
         hmmdb_file  = hmmdb_file,
@@ -94,6 +70,7 @@ workflow EXSCAN {
     ch_versions = ch_versions.mix(HMMSCAN.out.versions)
 
 
+    // Collect all hmmscan domtblout files into a single channel.
     Channel.empty()
         .mix( HMMSCAN.out.hmmscan_domtblout )
         .collect()
@@ -110,10 +87,11 @@ workflow EXSCAN {
 
     // DESC: Parse hmmscan domtblout and perform different opeations. (See `./subworkflows/domtblop.nf`)
     // ARGS: fasta (str)                       - path to nucleotide fasta file
-    //       ch_fasta_translated (channel)     - channel containing path to translated ORFs
+    //       ch_fasta_protein (channel)        - channel containing path to protein fasta file
     //       ch_hmmscan_domtblout (channel)    - cannel containing path to hmmscan domtblout file
+    //       sequence_type (str)               - type of fasta file (dna or protein)
     //       domain_ievalue (float)            - evalue threshold for domain hits
-    //       fasta_type (str)                  - type of fasta file (dna, rna, or protein)
+    //       fasta_type (str)                  - type of fasta file (dna or protein)
     //       gff_intersect (str)               - path to gff file to intersect with hmmscan results
     //       keep_only_intersect (bool)        - keep only hmmscan hits that intersect with gff file(s)
     //       min_alignment_len (int)           - minimum length of alignment
@@ -122,7 +100,8 @@ workflow EXSCAN {
     // RETS: ch_qresults_serialized (channel)  - channel containing path to domtblop results
     DOMTBLOP_DEFAULT(
         fasta                = ch_fasta,
-        ch_fasta_translated  = ch_fasta_translated,
+        ch_fasta_protein     = ch_fasta_protein,
+        sequence_type        = fasta_type,
         ch_hmmscan_domtblout = MERGE_DOMTBLOUT_RESULTS.out.hmmscan_merged_domtblout,
         domain_ieval         = domain_ieval,
         fasta_type           = fasta_type,

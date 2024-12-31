@@ -68,27 +68,74 @@ Examples:
 """
 
 import argparse
+from dataclasses import dataclass
 from enum import Enum
 import json
 import logging
 import os
 import sys
 from typing import (
-        List,
-        Tuple,
-        )
+    Dict,
+    List,
+    Tuple,
+)
 
 from domtblop_parser import (
-        CustomEncoder,
-        HmmscanDomainAlignment,
-        HmmscanDomainHit,
-        HmmscanQueryResult,
-        UnexpectedQueryIdFormat,
-        )
+    CustomEncoder,
+    HmmscanQueryResult,
+    UnexpectedQueryIdFormat,
+)
 from domtblop_utils import (
-        setup_logger,
-        read_input,
-    )
+    setup_logger,
+    read_input,
+)
+
+
+@dataclass
+class FilterParams:
+    _filter_enum: Enum
+    value: int | float | None
+    keep_best: bool
+
+    @property
+    def filter_type(self) -> str:
+        match self._filter_enum:
+            case QuerySequenceLevelFilter.EVALUE:
+                return "query_sequence_evalue"
+
+            case QuerySequenceLevelFilter.SCORE:
+                return "query_sequence_score"
+
+            case QuerySequenceLevelFilter.BIAS:
+                return "query_sequence_bias"
+
+            case DomainHitLevelFilter.IEVALUE:
+                return "domain_hit_ievalue"
+
+            case DomainHitLevelFilter.CEVALUE:
+                return "domain_hit_cevalue"
+
+            case DomainHitLevelFilter.SCORE:
+                return "domain_hit_score"
+
+            case DomainHitLevelFilter.BIAS:
+                return "domain_hit_bias"
+
+            case DomainAlignmentLevelFilter.ALIGNMENT_LENGTH:
+                return "domain_alignment_length"
+
+            case IntersectingGFFFeaturesLevelFilter.KEEP_ONLY_INTERSECT:
+                return "keep_only_intersect"
+
+            case _:
+                raise ValueError(f"Invalid filter type: {self._filter_enum}")
+
+    def to_json(self) -> Dict:
+        return {
+            "filter_type": self.filter_type,
+            "value": self.value,
+            "keep_best": self.keep_best,
+        }
 
 
 class QuerySequenceLevelFilter(Enum):
@@ -108,7 +155,7 @@ class DomainAlignmentLevelFilter(Enum):
     ALIGNMENT_LENGTH = "alignment_length"
 
 
-class IntersectingGFFFeaturesLevelFilter(Enum): # not used yet
+class IntersectingGFFFeaturesLevelFilter(Enum):  # not used yet
     KEEP_ONLY_INTERSECT = "keep_only_intersect"
 
 
@@ -116,12 +163,35 @@ class QueryResultWithEmptyFields(Exception):
     pass
 
 
+def validate_query_result(query_result: HmmscanQueryResult) -> bool:
+    """
+    Validate that query_result has the minimal structure required.
+    Return True if valid, False if invalid.
+
+    Args:
+        query_result (HmmscanQueryResult): Query result to validate.
+
+    Returns:
+        bool: True if the query result has the minimal structure required, False otherwise.
+    """
+    if not query_result.domain_hits:
+        return False
+    for hit in query_result.domain_hits:
+        if not hit.domain_alignments:
+            return False
+        for alignment in hit.domain_alignments:
+            if not alignment.alignment_fragments:
+                return False
+
+    return True
+
+
 def filter_query_sequence_level(
-        query_result: HmmscanQueryResult,
-        value: int | float,
-        filter_type: QuerySequenceLevelFilter,
-        logger: logging.Logger,
-        ) -> None:
+    query_result: HmmscanQueryResult,
+    value: int | float,
+    filter_type: QuerySequenceLevelFilter,
+    logger: logging.Logger,
+) -> None:
     """
     Filter the query result at the query sequence level.
 
@@ -142,49 +212,39 @@ def filter_query_sequence_level(
     """
     logger.debug(
         f"Filtering query result {query_result.query_id} at the query sequence level"
-        )
+    )
 
     if not query_result.domain_hits:
         raise QueryResultWithEmptyFields(
-                f"Query result {query_result.query_id} has no domain hits"
-                )
+            f"Query result {query_result.query_id} has no domain hits"
+        )
 
     match filter_type:
-
         case QuerySequenceLevelFilter.EVALUE:
             query_result.domain_hits = [
-                dh for dh in query_result.domain_hits if dh.full_sequence_evalue <= float(value)
-                ]
+                dh
+                for dh in query_result.domain_hits
+                if dh.full_sequence_evalue <= float(value)
+            ]
 
         case QuerySequenceLevelFilter.SCORE:
             query_result.domain_hits = [
-                dh for dh in query_result.domain_hits if dh.full_sequence_score >= int(value)
-                ]
+                dh
+                for dh in query_result.domain_hits
+                if dh.full_sequence_score >= int(value)
+            ]
 
         case QuerySequenceLevelFilter.BIAS:
             query_result.domain_hits = [
-                dh for dh in query_result.domain_hits if dh.bias <= int(value)
-                ]
-
-
-def has_domain_hits(query_result: HmmscanQueryResult) -> bool:
-    """
-    Check if the query result has domain hits.
-
-    Args:
-        query_result (HmmscanQueryResult): Query result to check.
-
-    Returns:
-        bool: True if the query result has domain hits, False otherwise.
-    """
-    return any(query_result.domain_hits)
+                dh for dh in query_result.domain_hits if dh.bias <= float(value)
+            ]
 
 
 def keep_best_domain_hit(
-        query_result: HmmscanQueryResult,
-        filter_type: QuerySequenceLevelFilter,
-        logger: logging.Logger,
-        ) -> None:
+    query_result: HmmscanQueryResult,
+    filter_type: QuerySequenceLevelFilter,
+    logger: logging.Logger,
+) -> None:
     """
     Keep only the best domain hit based on the filtering criteria.
 
@@ -204,21 +264,24 @@ def keep_best_domain_hit(
     """
     logger.debug(
         f"Keeping the best domain hit for query result {query_result.query_id}"
-        )
+    )
 
     if not query_result.domain_hits:
         raise QueryResultWithEmptyFields(
-                f"Query result {query_result.query_id} has no domain hits"
-                )
+            f"Query result {query_result.query_id} has no domain hits"
+        )
 
     match filter_type:
-
         case QuerySequenceLevelFilter.EVALUE:
-            best_hit = min(query_result.domain_hits, key=lambda x: x.full_sequence_evalue)
+            best_hit = min(
+                query_result.domain_hits, key=lambda x: x.full_sequence_evalue
+            )
             query_result.domain_hits = [best_hit]
 
         case QuerySequenceLevelFilter.SCORE:
-            best_hit = max(query_result.domain_hits, key=lambda x: x.full_sequence_score)
+            best_hit = max(
+                query_result.domain_hits, key=lambda x: x.full_sequence_score
+            )
             query_result.domain_hits = [best_hit]
 
         case QuerySequenceLevelFilter.BIAS:
@@ -227,11 +290,11 @@ def keep_best_domain_hit(
 
 
 def filter_domain_hit_level(
-        query_result: HmmscanQueryResult,
-        value: int | float,
-        filter_type: DomainHitLevelFilter,
-        logger: logging.Logger,
-        ) -> None:
+    query_result: HmmscanQueryResult,
+    value: int | float,
+    filter_type: DomainHitLevelFilter,
+    logger: logging.Logger,
+) -> None:
     """
     Filter the query result at the domain hit level.
 
@@ -252,48 +315,52 @@ def filter_domain_hit_level(
     """
     logger.debug(
         f"Filtering query result {query_result.query_id} at the domain hit level"
-        )
+    )
 
     if not query_result.domain_hits:
         raise QueryResultWithEmptyFields(
-                f"Query result {query_result.query_id} has no domain hits"
-                )
+            f"Query result {query_result.query_id} has no domain hits"
+        )
 
     for domain_hit in query_result.domain_hits:
-
         if not domain_hit.domain_alignments:
             raise QueryResultWithEmptyFields(
                 f"Query result {query_result.query_id} has no domain alignments"
-                )
+            )
 
         match filter_type:
-
             case DomainHitLevelFilter.IEVALUE:
                 domain_hit.domain_alignments = [
-                    da for da in domain_hit.domain_alignments if da.independent_evalue <= float(value)
-                    ]
+                    da
+                    for da in domain_hit.domain_alignments
+                    if da.independent_evalue <= float(value)
+                ]
 
             case DomainHitLevelFilter.CEVALUE:
                 domain_hit.domain_alignments = [
-                    da for da in domain_hit.domain_alignments if da.conditional_evalue <= float(value)
-                    ]
+                    da
+                    for da in domain_hit.domain_alignments
+                    if da.conditional_evalue <= float(value)
+                ]
 
             case DomainHitLevelFilter.SCORE:
                 domain_hit.domain_alignments = [
-                    da for da in domain_hit.domain_alignments if da.bit_score >= int(value)
-                    ]
+                    da
+                    for da in domain_hit.domain_alignments
+                    if da.bit_score >= int(value)
+                ]
 
             case DomainHitLevelFilter.BIAS:
                 domain_hit.domain_alignments = [
-                    da for da in domain_hit.domain_alignments if da.bias <= int(value)
-                    ]
+                    da for da in domain_hit.domain_alignments if da.bias <= float(value)
+                ]
 
 
 def keep_best_domain_alignment(
-        query_result: HmmscanQueryResult,
-        filter_type: DomainHitLevelFilter,
-        logger: logging.Logger,
-        ) -> None:
+    query_result: HmmscanQueryResult,
+    filter_type: DomainHitLevelFilter,
+    logger: logging.Logger,
+) -> None:
     """
     Keep only the best domain alignment based on the filtering criteria.
 
@@ -314,32 +381,36 @@ def keep_best_domain_alignment(
 
     logger.debug(
         f"Keeping the best domain alignment for query result {query_result.query_id}"
-        )
+    )
 
     if not query_result.domain_hits:
         raise QueryResultWithEmptyFields(
-                f"Query result {query_result.query_id} has no domain hits"
-                )
+            f"Query result {query_result.query_id} has no domain hits"
+        )
 
     for domain_hit in query_result.domain_hits:
-
         if not domain_hit.domain_alignments:
             raise QueryResultWithEmptyFields(
                 f"Query result {query_result.query_id} has no domain alignments"
-                )
+            )
 
         match filter_type:
-
             case DomainHitLevelFilter.IEVALUE:
-                best_alignment = min(domain_hit.domain_alignments, key=lambda x: x.independent_evalue)
+                best_alignment = min(
+                    domain_hit.domain_alignments, key=lambda x: x.independent_evalue
+                )
                 domain_hit.domain_alignments = [best_alignment]
 
             case DomainHitLevelFilter.CEVALUE:
-                best_alignment = min(domain_hit.domain_alignments, key=lambda x: x.conditional_evalue)
+                best_alignment = min(
+                    domain_hit.domain_alignments, key=lambda x: x.conditional_evalue
+                )
                 domain_hit.domain_alignments = [best_alignment]
 
             case DomainHitLevelFilter.SCORE:
-                best_alignment = max(domain_hit.domain_alignments, key=lambda x: x.bit_score)
+                best_alignment = max(
+                    domain_hit.domain_alignments, key=lambda x: x.bit_score
+                )
                 domain_hit.domain_alignments = [best_alignment]
 
             case DomainHitLevelFilter.BIAS:
@@ -347,26 +418,12 @@ def keep_best_domain_alignment(
                 domain_hit.domain_alignments = [best_alignment]
 
 
-def has_domain_alignments(domain_hit: HmmscanDomainHit) -> bool:
-    """
-    Check if the domain hit has domain alignments.
-
-    Args:
-        domain_hit (HmmscanDomainHit): Domain hit to check.
-
-    Returns:
-        bool: True if the domain hit has domain alignments, False otherwise.
-    """
-
-    return any(domain_hit.domain_alignments)
-
-
 def filter_domain_alignment_level(
-        query_result: HmmscanQueryResult,
-        value: int,
-        filter_type: DomainAlignmentLevelFilter,
-        logger: logging.Logger,
-        ) -> None:
+    query_result: HmmscanQueryResult,
+    value: int,
+    filter_type: DomainAlignmentLevelFilter,
+    logger: logging.Logger,
+) -> None:
     """
     Filter the domain hit at the domain alignment level.
 
@@ -388,55 +445,289 @@ def filter_domain_alignment_level(
 
     logger.debug(
         f"Filtering query result {query_result.query_id} at the domain alignment level"
-        )
+    )
 
     if not query_result.domain_hits:
         raise QueryResultWithEmptyFields(
-                f"Query result {query_result.query_id} has no domain hits"
-                )
+            f"Query result {query_result.query_id} has no domain hits"
+        )
 
     for domain_hit in query_result.domain_hits:
-
         if not domain_hit.domain_alignments:
             raise QueryResultWithEmptyFields(
                 f"Query result {query_result.query_id} has no domain alignments"
-                )
-
+            )
 
         for domain_alignment in domain_hit.domain_alignments:
-
             if not domain_alignment.alignment_fragments:
                 raise QueryResultWithEmptyFields(
                     f"Query result {query_result.query_id} has no domain alignment fragments"
-                    )
+                )
 
             match filter_type:
-
                 case DomainAlignmentLevelFilter.ALIGNMENT_LENGTH:
-
                     if len(domain_alignment.alignment_fragments) == 1:
-                        if domain_alignment.alignment_fragments[0].sequence_end - domain_alignment.alignment_fragments[0].sequence_start < value:
+                        if (
+                            domain_alignment.alignment_fragments[0].sequence_end
+                            - domain_alignment.alignment_fragments[0].sequence_start
+                            < value
+                        ):
                             domain_hit.domain_alignments = []
 
                     else:
-                        alignment_length = sum(fragment.sequence_end - fragment.sequence_start for fragment in domain_alignment.alignment_fragments)
+                        alignment_length = sum(
+                            fragment.sequence_end - fragment.sequence_start
+                            for fragment in domain_alignment.alignment_fragments
+                        )
 
                         if alignment_length < value:
                             domain_hit.domain_alignments = []
 
 
-def has_alignment_fragments(domain_alignment: HmmscanDomainAlignment) -> bool:
+def cleanup_empty_structures(
+    query_result: HmmscanQueryResult,
+) -> HmmscanQueryResult | None:
     """
-    Check if the domain alignment has alignment fragments.
+    Cleanup empty structures in the query result.
 
     Args:
-        domain_alignment (HmmscanDomainAlignment): Domain alignment to check.
+        query_result (HmmscanQueryResult): Query result to cleanup.
 
     Returns:
-        bool: True if the domain alignment has alignment fragments, False otherwise.
+        HmmscanQueryResult | None: Query result with empty structures removed or None if no data remains.
     """
 
-    return any(domain_alignment.alignment_fragments)
+    # Check if query result has domain hits. If not, function returns None
+    if not query_result.has_domain_hits():
+        return None
+
+    # Iterate over hits to only retain only those that have alignments
+    query_result.domain_hits = [
+        dh for dh in query_result.domain_hits if dh.has_domain_alignments()
+    ]
+
+    # We may have removed domain hits in the previous operation, re-checking
+    if not query_result.has_domain_hits():
+        return None
+
+    # Now we are left with domain hits that we know have domain alignments
+    for dh in query_result.domain_hits:
+        # So we retain only those domain alignments that contain alignment fragments
+        dh.domain_alignments = [
+            da for da in dh.domain_alignments if da.has_domain_alignment_fragments()
+        ]
+
+    # Retain only the domain hits that contain domain alginments
+    query_result.domain_hits = [
+        dh for dh in query_result.domain_hits if dh.has_domain_alignments()
+    ]
+
+    if not query_result.has_domain_hits():
+        return None
+
+    return query_result
+
+
+def apply_filters(
+    query_result: HmmscanQueryResult, config: argparse.Namespace, logger: logging.Logger
+) -> HmmscanQueryResult | None:
+    """
+    Apply all relevant filters to the query_result based on config.
+    Return the filtered query_result (possibly modified) or None if no data remains.
+
+    Args:
+        query_result (HmmscanQueryResult): Query result to filter.
+        config (argparse.Namespace): Configuration options.
+        logger (logging.Logger): Logger instance.
+
+    Returns:
+        HmmscanQueryResult | None: Filtered query result or None if no data remains.
+    """
+    # Apply sequence-level filters
+    if config.seq_evalue is not None:
+        filter_query_sequence_level(
+            query_result, config.seq_evalue, QuerySequenceLevelFilter.EVALUE, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_hit(query_result, QuerySequenceLevelFilter.EVALUE, logger)
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                QuerySequenceLevelFilter.EVALUE,
+                config.seq_evalue,
+                config.best_hit,
+            )
+        )
+
+    elif config.seq_score is not None:
+        filter_query_sequence_level(
+            query_result, config.seq_score, QuerySequenceLevelFilter.SCORE, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_hit(query_result, QuerySequenceLevelFilter.SCORE, logger)
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                QuerySequenceLevelFilter.SCORE,
+                config.seq_score,
+                config.best_hit,
+            )
+        )
+
+    elif config.seq_bias is not None:
+        filter_query_sequence_level(
+            query_result, config.seq_bias, QuerySequenceLevelFilter.BIAS, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_hit(query_result, QuerySequenceLevelFilter.BIAS, logger)
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                QuerySequenceLevelFilter.BIAS,
+                config.seq_bias,
+                config.best_hit,
+            )
+        )
+
+    # Domain-level filters
+    if config.dom_ievalue is not None:
+        filter_domain_hit_level(
+            query_result, config.dom_ievalue, DomainHitLevelFilter.IEVALUE, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_alignment(
+                query_result, DomainHitLevelFilter.IEVALUE, logger
+            )
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                DomainHitLevelFilter.IEVALUE,
+                config.dom_ievalue,
+                config.best_hit,
+            )
+        )
+
+    elif config.dom_cevalue is not None:
+        filter_domain_hit_level(
+            query_result, config.dom_cevalue, DomainHitLevelFilter.CEVALUE, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_alignment(
+                query_result, DomainHitLevelFilter.CEVALUE, logger
+            )
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                DomainHitLevelFilter.CEVALUE,
+                config.dom_cevalue,
+                config.best_hit,
+            )
+        )
+
+    elif config.dom_score is not None:
+        filter_domain_hit_level(
+            query_result, config.dom_score, DomainHitLevelFilter.SCORE, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_alignment(query_result, DomainHitLevelFilter.SCORE, logger)
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                DomainHitLevelFilter.SCORE,
+                config.dom_score,
+                config.best_hit,
+            )
+        )
+
+    elif config.dom_bias is not None:
+        filter_domain_hit_level(
+            query_result, config.dom_bias, DomainHitLevelFilter.BIAS, logger
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+        if config.best_hit:
+            keep_best_domain_alignment(query_result, DomainHitLevelFilter.BIAS, logger)
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                DomainHitLevelFilter.BIAS,
+                config.dom_bias,
+                config.best_hit,
+            )
+        )
+
+    # Here we're applying the filters to domain alignments:
+    if config.min_alignment_length:
+        filter_domain_alignment_level(
+            query_result,
+            config.min_alignment_length,
+            DomainAlignmentLevelFilter.ALIGNMENT_LENGTH,
+            logger,
+        )
+        query_result = cleanup_empty_structures(query_result)
+        if query_result is None:
+            return None
+
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                DomainAlignmentLevelFilter.ALIGNMENT_LENGTH,
+                config.min_alignment_length,
+                False,
+            )
+        )
+
+    # Cleanup empty structures after filtering
+    query_result = cleanup_empty_structures(query_result)
+
+    # If requested, keep only entries with intersecting GFF features
+    if config.keep_only_intersect:
+        query_result.metadata.parameters_used.append(
+            FilterParams(
+                IntersectingGFFFeaturesLevelFilter.KEEP_ONLY_INTERSECT,
+                None,
+                False,
+            )
+        )
+
+        if not query_result.has_intersecting_gff_features():
+            return None
+
+    # If no hits remain after filtering and cleanup
+    if not query_result.has_domain_hits():
+        return None
+
+    if not any(dh.has_domain_alignments() for dh in query_result.domain_hits):
+        return None
+
+    if not any(
+        da.has_domain_alignment_fragments()
+        for dh in query_result.domain_hits
+        for da in dh.domain_alignments
+    ):
+        return None
+
+    query_result.update_modified_at()
+
+    return query_result
 
 
 def setup_argparse() -> argparse.ArgumentParser:
@@ -458,7 +749,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         type=str,
         nargs="?",
         default="-",
-        )
+    )
 
     # Filtering options
 
@@ -468,19 +759,19 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--seq-evalue",
         type=float,
         default=None,
-        help="Keep hits with full sequence e-value < value"
+        help="Keep hits with full sequence e-value < value",
     )
     seq_filters.add_argument(
         "--seq-score",
         type=float,
         default=None,
-        help="Keep hits with full sequence score > value"
+        help="Keep hits with full sequence score > value",
     )
     seq_filters.add_argument(
         "--seq-bias",
         type=float,
         default=None,
-        help="Keep hits with full sequence bias < value"
+        help="Keep hits with full sequence bias < value",
     )
 
     # Domain filters
@@ -489,25 +780,25 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--dom-ievalue",
         type=float,
         default=None,
-        help="Keep hits with independent e-value < value"
+        help="Keep hits with independent e-value < value",
     )
     dom_filters.add_argument(
         "--dom-cevalue",
         type=float,
         default=None,
-        help="Keep hits with conditional e-value < value"
+        help="Keep hits with conditional e-value < value",
     )
     dom_filters.add_argument(
         "--dom-score",
         type=float,
         default=None,
-        help="Keep hits with domain score > value"
+        help="Keep hits with domain score > value",
     )
     dom_filters.add_argument(
         "--dom-bias",
         type=float,
         default=None,
-        help="Keep hits with domain bias < value"
+        help="Keep hits with domain bias < value",
     )
 
     # Domain alignment filters
@@ -515,7 +806,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--min-alignment-length",
         type=int,
         default=None,
-        help="Keep hits with domain alignment length > value (sequence side)"
+        help="Keep hits with domain alignment length > value (sequence side)",
     )
 
     # Intersecting GFF features filters
@@ -523,7 +814,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--keep-only-intersect",
         action="store_true",
         default=False,
-        help="Keep only the GFF features that intersect with the domain alignments of a query sequence"
+        help="Keep only the GFF features that intersect with the domain alignments of a query sequence",
     )
 
     # Optional arguments
@@ -531,27 +822,23 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--best-hit",
         action="store_true",
         default=False,
-        help="Only keep the best hit for each sequence based on filtering criteria"
+        help="Only keep the best hit for each sequence based on filtering criteria",
     )
     parser.add_argument(
-        "-l", "--loglevel",
+        "-l",
+        "--loglevel",
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
-    parser.add_argument(
-        "-h", "--help",
-        action="store_true",
-        default=False
-    )
+    parser.add_argument("-h", "--help", action="store_true", default=False)
 
     return parser
 
 
-def setup_config(args: List[str],) -> Tuple[
-        argparse.Namespace,
-        logging.Logger
-        ]:
+def setup_config(
+    args: List[str],
+) -> Tuple[argparse.Namespace, logging.Logger]:
     """
     Setup configuration for the script.
 
@@ -575,25 +862,29 @@ def setup_config(args: List[str],) -> Tuple[
         logger.error("No serialized domtblout file provided.")
         raise ValueError
 
-    if not os.path.exists(config.serialized_domtblout) and config.serialized_domtblout != "-":
+    if (
+        not os.path.exists(config.serialized_domtblout)
+        and config.serialized_domtblout != "-"
+    ):
         logger.error(
             f"Serialized domtblout file '{config.serialized_domtblout}' "
             "does not exist."
         )
         raise FileNotFoundError
 
-
-    if not any([
-        config.seq_evalue,
-        config.seq_score,
-        config.seq_bias,
-        config.dom_ievalue,
-        config.dom_cevalue,
-        config.dom_score,
-        config.dom_bias,
-        config.min_alignment_length,
-        config.keep_only_intersect,
-        ]):
+    if not any(
+        [
+            config.seq_evalue,
+            config.seq_score,
+            config.seq_bias,
+            config.dom_ievalue,
+            config.dom_cevalue,
+            config.dom_score,
+            config.dom_bias,
+            config.min_alignment_length,
+            config.keep_only_intersect,
+        ]
+    ):
         logger.error(
             "No filtering criteria provided. "
             "Please provide at least one filtering criterion."
@@ -604,15 +895,14 @@ def setup_config(args: List[str],) -> Tuple[
 
 
 def run(args: List[str]) -> None:
-
     try:
         config, logger = setup_config(args)
     except (ValueError, FileNotFoundError):
         sys.exit(1)
     logger.info(
-        "Running with the following configuration: " 
-        + ", ".join(f"{k}={v}" for k,v in config.__dict__.items())
-        )
+        "Running with the following configuration: "
+        + ", ".join(f"{k}={v}" for k, v in config.__dict__.items())
+    )
 
     try:
         file_handle = read_input(config.serialized_domtblout)
@@ -626,114 +916,48 @@ def run(args: List[str]) -> None:
     n_domain_alignments_before_filter = 0
     n_domain_alignments_after_filter = 0
     for line in file_handle:
-
         try:
             query_result = HmmscanQueryResult.from_json(json.loads(line))
         except UnexpectedQueryIdFormat as e:
             logger.error(e)
             sys.exit(1)
 
-        logger.debug(f"Attempting to apply filtering conditions to {query_result.query_id}")
+        logger.debug(
+            f"Attempting to apply filtering conditions to {query_result.query_id}"
+        )
 
-        n_qresults_before_filter += 1
-        n_hits_before_filter += len(query_result.domain_hits)
-        n_domain_alignments_before_filter += sum(len(domain_hit.domain_alignments) for domain_hit in query_result.domain_hits)
-
-        if not any(query_result.domain_hits):
-            logger.error(
-                f"No domain hit where found for the query: {query_result.query_id}"
-            )
+        if not validate_query_result(query_result):
+            logger.error(f"Invalid query result {query_result.query_id}")
             sys.exit(1)
 
+        # Before filtering
+        original_hits = len(query_result.domain_hits)
+        original_alignments = sum(
+            len(dh.domain_alignments) for dh in query_result.domain_hits
+        )
         try:
-            # Here we're applying the filters to whole sequence hit results
-            if config.seq_evalue:
-                filter_query_sequence_level(query_result, config.seq_evalue, QuerySequenceLevelFilter.EVALUE, logger)
-                if config.best_hit:
-                    keep_best_domain_hit(query_result, QuerySequenceLevelFilter.EVALUE, logger)
-
-            elif config.seq_score:
-                filter_query_sequence_level(query_result, config.seq_score, QuerySequenceLevelFilter.SCORE, logger)
-                if config.best_hit:
-                    keep_best_domain_hit(query_result, QuerySequenceLevelFilter.SCORE, logger)
-
-            elif config.seq_bias:
-                filter_query_sequence_level(query_result, config.seq_bias, QuerySequenceLevelFilter.BIAS, logger)
-                if config.best_hit:
-                    keep_best_domain_hit(query_result, QuerySequenceLevelFilter.BIAS, logger)
-
-
-            # Here we're applying the filters to domain hits
-            if config.dom_ievalue:
-                filter_domain_hit_level(query_result, config.dom_ievalue, DomainHitLevelFilter.IEVALUE, logger)
-                if config.best_hit:
-                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.IEVALUE, logger)
-
-            elif config.dom_cevalue:
-                filter_domain_hit_level(query_result, config.dom_cevalue, DomainHitLevelFilter.CEVALUE, logger)
-                if config.best_hit:
-                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.CEVALUE, logger)
-
-            elif config.dom_score:
-                filter_domain_hit_level(query_result, config.dom_score, DomainHitLevelFilter.SCORE, logger)
-                if config.best_hit:
-                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.SCORE, logger)
-
-            elif config.dom_bias:
-                filter_domain_hit_level(query_result, config.dom_bias, DomainHitLevelFilter.BIAS, logger)
-                if config.best_hit:
-                    keep_best_domain_alignment(query_result, DomainHitLevelFilter.BIAS, logger)
-
-
-            # Here we're applying the filters to domain alignments
-            if config.min_alignment_length:
-                filter_domain_alignment_level(query_result, config.min_alignment_length, DomainAlignmentLevelFilter.ALIGNMENT_LENGTH, logger)
-
+            id_ = query_result.query_id
+            query_result = apply_filters(query_result, config, logger)
         except QueryResultWithEmptyFields as e:
             logger.error(e)
+            sys.exit(1)
+
+        # If we are still here, we have a valid query result that we counted BEFORE filtering
+        n_qresults_before_filter += 1
+        n_hits_before_filter += original_hits
+        n_domain_alignments_before_filter += original_alignments
+
+        if query_result is None:
+            logger.warning(f"Query result {id_} does not satisfy filtering criteria")
             continue
 
-        # NOTE: Remainder that a query result is a nested structure:
-        # A. Each query result has a list of domain hits
-        # B. Each domain hit has a list of domain alignments
-        # C. Each domain alignment has a list of alignment fragments
-
-        # A. Does the query result have any domain hits left after filtering?
-        if not query_result.has_domain_hits():
-            logger.warning(
-                "After applying filters, there are no remaining domain hits for the query: "
-                f"{query_result.query_id}"
-                )
-            # Query result has no domain hits left, do not print it and skip to the next query result
-            continue
-
-        # B. Does the domain hit have any domain alignments left after filtering?
-        if not any([dh.has_domain_alignments() for dh in query_result.domain_hits]):
-            logger.warning(
-                "After applying filters, there are no remaining domain alignments for the query: "
-                f"{query_result.query_id}"
-                )
-            continue
-
-        # C. Does the domain alignment have any alignment fragments left after filtering?
-        if not any([da.has_domain_alignment_fragments() for dh in query_result.domain_hits for da in dh.domain_alignments]):
-            logger.warning(
-                "After applying filters, there are no remaining domain alignment fragments for the query: "
-                f"{query_result.query_id}"
-                )
-            continue
-
-
+        n_qresults_after_filter += 1
         n_hits_after_filter += len(query_result.domain_hits)
-        n_domain_alignments_after_filter += sum(len(domain_hit.domain_alignments) for domain_hit in query_result.domain_hits)
-
-
-        if config.keep_only_intersect:
-            if not query_result.has_intersecting_gff_features():
-                continue
+        n_domain_alignments_after_filter += sum(
+            len(dh.domain_alignments) for dh in query_result.domain_hits
+        )
 
         try:
-            n_qresults_after_filter += 1
             print(json.dumps(query_result, cls=CustomEncoder))
 
         except BrokenPipeError:
@@ -741,16 +965,34 @@ def run(args: List[str]) -> None:
             os.dup2(devnull, sys.stdout.fileno())
             sys.exit(1)
 
-    logger.info(
-        f"Number of query results before filtering: {n_qresults_before_filter}, "
-        f"Number of hits before filtering: {n_hits_before_filter}, "
-        f"Number of hits after filtering: {n_hits_after_filter}, "
-        f"Difference: {n_hits_before_filter - n_hits_after_filter}"
-    )
-    logger.info(
-        f"Number of query results after filtering: {n_qresults_after_filter}, "
-        f"Number of domain alignments before filtering: {n_domain_alignments_before_filter}, "
-        f"Number of domain alignments after filtering: {n_domain_alignments_after_filter}, "
-        f"Difference: {n_domain_alignments_before_filter - n_domain_alignments_after_filter}"
+    # Compute differences
+    hits_removed = n_hits_before_filter - n_hits_after_filter
+    alignments_removed = (
+        n_domain_alignments_before_filter - n_domain_alignments_after_filter
     )
 
+    # Handle division by zero (in case no queries processed)
+    qresults_percentage = (
+        (n_qresults_after_filter / n_qresults_before_filter * 100)
+        if n_qresults_before_filter > 0
+        else 0
+    )
+    hits_percentage = (
+        (hits_removed / n_hits_before_filter * 100) if n_hits_before_filter > 0 else 0
+    )
+    alignments_percentage = (
+        (alignments_removed / n_domain_alignments_before_filter * 100)
+        if n_domain_alignments_before_filter > 0
+        else 0
+    )
+
+    logger.info(
+        "\nFiltering Summary:\n"
+        "------------------\n"
+        f"Query Results: {n_qresults_before_filter} before, {n_qresults_after_filter} after "
+        f"({qresults_percentage:.2f}% remain)\n"
+        f"Domain Hits: {n_hits_before_filter} before, {n_hits_after_filter} after, {hits_removed} removed "
+        f"({hits_percentage:.2f}% removed)\n"
+        f"Domain Alignments: {n_domain_alignments_before_filter} before, {n_domain_alignments_after_filter} after, "
+        f"{alignments_removed} removed ({alignments_percentage:.2f}% removed)\n"
+    )
