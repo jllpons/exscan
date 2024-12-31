@@ -17,12 +17,11 @@ performs the following steps:
 2. **Profile HMM Search**  
    Queries each translated ORF or raw protein sequence against a profile HMM database using [`hmmscan`](<http://hmmer.org/>).
 
-3. **Perform different operations on each query result**. Operations include: 
+3. **Perform different operations on each query result**. Among others, operations include:
     - Filtering the results by e-value, score, and coverage.
-    - Selecting the best hit for each ORF, sequence fragment, or full protein
-      sequence.
+    - Selecting the best scoring hit for each translated ORF or full protein sequence.
     - Comparing hits with a GFF file to retrain the features intersecting with the hits.
-    - Generating FASTA files contaning aligned sequences for each hit, corresponding ORFs, or the original sequence.
+    - Writing profile HMM hits to a FASTA, GFF, CSV...
 
 All operations are handled via [`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>), [`jq`](<https://jqlang.github.io/jq/>), and [`bedtools`](<https://bedtools.readthedocs.io/en/latest/>).
 
