@@ -1,0 +1,45 @@
+nextflow_pipeline {
+
+    name "Test Workflow main.nf on protein sequence"
+    script "main.nf"
+
+    test("Testing main.nf on protein sequence, should run without failures") {
+
+        when {
+            params {
+                // define parameters here. Example: 
+                // outdir = "tests/results"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+    test("Testing main.nf on dna sequence, should run without failures") {
+
+        when {
+            params {
+                fasta               = "${projectDir}/data/tests/single_nucleotide.fasta"
+                hmmdb               = "${projectDir}/data/tests/hmmdb"
+                sequence_type       = "dna"
+                dom_ieval_filter    = "1e-07"
+                min_alignment_len   = 16
+                grouping_distance   = 1375
+                gff_intersect       = null
+                keep_only_intersect = false
+
+                outdir              = "nf-test_single_dna"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+}
+

@@ -1,10 +1,8 @@
 .DS_Store
 .nextflow*
 .nf-test.log
-nf-test
 .nf-test*
 results/
 work/
-data/
 __pycache__/
 .vscode
