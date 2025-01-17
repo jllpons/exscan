@@ -61,6 +61,19 @@ def mk_plots_dir() -> None:
         os.mkdir(f"{cwd}/plots")
 
 
+def mk_to_png_script() -> None:
+
+    script = r"""
+#!/usr/bin/env bash
+
+# Convert all SVG files in the current directory to PNG
+ls plots | grep ".svg" | sed 's/.svg//g' | xargs -I{}  resvg -w 3200 -h 2600 --dpi 300 plots/{}.svg plots/{}.png
+    """
+
+    with open(f"{os.getcwd()}/to_png.sh", "w") as f:
+        f.write(script)
+
+
 def mk_nhits_per_profile_barplot(
     query_results: List[HmmscanQueryResult],
     logger: logging.Logger,
@@ -102,6 +115,50 @@ def mk_nhits_per_profile_barplot(
     ax.set_title("Number of hits per HMM profile")
 
     plt.savefig("plots/nhits_per_profile_barplot.svg", format="svg")
+
+    plt.clf()
+    plt.close()
+
+
+def mk_nuniqhits_per_profile_sequence_level_barplot(
+    query_results: List[HmmscanQueryResult],
+    logger: logging.Logger,
+    ) -> None:
+
+    data = {"hmmProfile": []}
+    for query_result in query_results:
+        profile_hits = set()
+        for domain_hit in query_result.domain_hits:
+            profile_hits.add(domain_hit.name)
+        data["hmmProfile"].extend(profile_hits)
+        data["hmmProfile"].extend(["Total" for _ in range(len(profile_hits))])
+
+    df = pd.DataFrame(data)
+
+    f, ax = plt.subplots(figsize=HORIZONTAL_FIGSIZE)
+
+    sns.set_color_codes("muted")
+
+    sns.countplot(
+        y="hmmProfile",
+        data=df,
+        ax=ax,
+        order=df["hmmProfile"].value_counts().index,
+        )
+
+    try:
+        ax.bar_label(ax.containers[0], fontsize=8)
+    except IndexError:
+        pass
+
+    plt.xlabel("Number of hits", size=9)
+    plt.ylabel("HMM Profile", size=9)
+    plt.yticks(
+        size=8,
+    )
+    ax.set_title("Number of unique hits per HMM profile for each sequence")
+
+    plt.savefig("plots/nuniqhits_per_profile_sequence_level_barplot.svg", format="svg")
 
     plt.clf()
     plt.close()
@@ -330,9 +387,9 @@ def mk_upset_hits_per_sequence(
 
     upset.plot()
 
-    plt.title("Profile HMM Hits per Translated Sequence", size=25)
+    plt.title("Profile HMM Hits per Query Sequence", size=25)
 
-    plt.savefig("plots/upset_hits_per_sequence.svg", format="svg")
+    plt.savefig("plots/upset_hits_per_qsequence.svg", format="svg")
     plt.clf()
     plt.close()
 
@@ -434,14 +491,18 @@ def run(args: List[str]) -> None:
 
     mk_plots_dir()
 
-    mk_nhits_per_profile_barplot(query_results, logger)
+    mk_to_png_script()
 
-    mk_nhits_per_profile_and_per_chromosome_barplot(query_results, logger)
+    mk_nuniqhits_per_profile_sequence_level_barplot(query_results, logger)
+
+    #mk_nhits_per_profile_barplot(query_results, logger)
+
+    #mk_nhits_per_profile_and_per_chromosome_barplot(query_results, logger)
 
     mk_upset_hits_per_sequence(query_results, logger)
 
-    mk_violinplot_evalue_distribution_per_profile(query_results, logger)
+    #mk_violinplot_evalue_distribution_per_profile(query_results, logger)
 
-    mk_violinplot_aligment_length_distribution_per_profile(query_results, logger)
+    #mk_violinplot_aligment_length_distribution_per_profile(query_results, logger)
 
-    mk_violin_bitscore_distribution_per_profile(query_results, logger)
+    #mk_violin_bitscore_distribution_per_profile(query_results, logger)

@@ -8,6 +8,7 @@ include { DOMTBLOP_GFFINTERSECT                   } from '../modules/local/domtb
 include { DOMTBLOP_GROUP                          } from '../modules/local/domtblop'
 include { DOMTBLOP_PARSER                         } from '../modules/local/domtblop'
 include { DOMTBLOP_TOBED                          } from '../modules/local/domtblop'
+include { DOMTBLOP_TOCSV                          } from '../modules/local/domtblop'
 include { DOMTBLOP_TOFASTA                        } from '../modules/local/domtblop'
 include { DOMTBLOP_TOGFF                          } from '../modules/local/domtblop'
 include { JQ_QUERY_ID                             } from '../modules/local/jq'
@@ -256,9 +257,10 @@ workflow DOMTBLOP_DEFAULT {
         min_alignment_len,
     )
     ch_versions = ch_versions.mix(DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH.out.versions)
+    ch_qresults_serialized = DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH.out.qresults_serialized
 
 
-    if (group != null) {
+    if (sequence_type == "dna") {
         // DESC: Group hits within specified distance from each other.
         // ARGS: ch_hits_serialized (channel) - Channel containing path to serialized JSON file with hits
         //       group (int)                  - Maximum distance between hits to group
@@ -324,6 +326,17 @@ workflow DOMTBLOP_DEFAULT {
         ch_qresults_serialized = ch_qresults_serialized,
     )
     ch_versions = ch_versions.mix(DOMTBLOP_TOFASTA.out.versions)
+
+
+    // DESC: Convert domain aligments from serialized JSON to CSV format
+    // ARGS: ch_qresults_serialized   (channel) - Channel containing path to serialized JSON file
+    // RETS: ch_qresults_sequence_csv (channel) - Channel containing path to sequence-centric CSV file
+    //       ch_qresults_domain_csv   (channel) - Channel containing path to domain-centric CSV file
+    //       ch_versions              (channel) - Channel containing path to versions.yml
+    DOMTBLOP_TOCSV(
+        ch_qresults_serialized = ch_qresults_serialized,
+    )
+    ch_versions = ch_versions.mix(DOMTBLOP_TOCSV.out.versions)
 
 
     emit:

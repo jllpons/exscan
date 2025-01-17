@@ -25,7 +25,9 @@ from domtblop_parser import (
     UnexpectedQueryIdFormat,
     CustomEncoder,
     GffFeature,
-    GroupedQueryResults,
+    QueryResultMetadata,
+    Group,
+    Intersection,
     DomainAlignmentFragment,
     HmmscanQueryResult,
     HmmscanDomainHit,
@@ -94,9 +96,28 @@ def build_dummy_hit() -> HmmscanQueryResult:
     """
 
     dummy_query_result = HmmscanQueryResult(
+        metadata=QueryResultMetadata(
+            created_at="2025-01-04T20:41:20.328556",
+            last_modified_at="2025-01-04T20:41:20.328556",
+            parameters_used=[
+                {
+                    "name": "addseq",
+                    "sequence_type": "protein",
+                },
+                {
+                    "name": "addseq",
+                    "sequence_type": "dna",
+                },
+                {
+                    "name": "gffintersect",
+                    "bedtools_intersect_output": "bedtools_intersect.out",
+                },
+            ]
+        ),
         query_id="myFavoriteGene_frame=2_begin=10_end=200",
-        aminoacid_sequence="MSEQNFFICENTSEQUENCEMSEQNFFICENTSEQUENCEMSEQNFFICENTSEQUENCEMSEQNFFICENTSEQUENCE",
-        nucleotide_sequence="ATGAGTGAACAGNAATTTCATNNNTNNTTNNNNNNNNNNNNAATTTCTEEESOMEDATA... (truncated for brevity)",
+        sequence_type="dna",
+        protein_sequence="MSEQNFFICENTSEQUENCEMSEQNFFICENTSEQUENCEMSEQNFFICENTSEQUENCEMSEQNFFICENTSEQUENCE",
+        source_sequence="ATGAGTGAACAGNAATTTCATNNNTNNTTNNNNNNNNNNNNAATTTCTEEESOMEDATA... (truncated for brevity)",
         domain_hits=[
             HmmscanDomainHit(
                 accession="PF00010.5",
@@ -117,6 +138,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                         envelope_end=60,
                         alignment_fragments=[
                             DomainAlignmentFragment(
+                                domain_alignment_id="DA_000001",
                                 domain_start=1,
                                 domain_end=25,
                                 domain_strand="+",
@@ -125,6 +147,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                                 sequence_strand="+",
                             ),
                             DomainAlignmentFragment(
+                                domain_alignment_id="DA_000002",
                                 domain_start=26,
                                 domain_end=30,
                                 domain_strand="+",
@@ -145,6 +168,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                         envelope_end=90,
                         alignment_fragments=[
                             DomainAlignmentFragment(
+                                domain_alignment_id="DA_000003",
                                 domain_start=1,
                                 domain_end=15,
                                 domain_strand="+",
@@ -175,6 +199,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                         envelope_end=100,
                         alignment_fragments=[
                             DomainAlignmentFragment(
+                                domain_alignment_id="DA_000004",
                                 domain_start=5,
                                 domain_end=14,
                                 domain_strand="+",
@@ -205,6 +230,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                         envelope_end=110,
                         alignment_fragments=[
                             DomainAlignmentFragment(
+                                domain_alignment_id="DA_000005",
                                 domain_start=1,
                                 domain_end=5,
                                 domain_strand="+",
@@ -235,6 +261,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                         envelope_end=33,
                         alignment_fragments=[
                             DomainAlignmentFragment(
+                                domain_alignment_id="DA_000006",
                                 domain_start=2,
                                 domain_end=3,
                                 domain_strand="+",
@@ -247,8 +274,9 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 ],
             ),
         ],
-        gff_intersecting_features=[
+        gff_features=[
             GffFeature(
+                feature_id="GF_000001",
                 seqid="ExampleGene",
                 source="trustedSource",
                 type_="gene",
@@ -257,9 +285,10 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 score=".",
                 strand="+",
                 phase=".",
-                attributes={"ID": "ExampleGene", "Name": "ExampleGene"},
+                attributes={"parentID": "ExampleGene", "Name": "ExampleGene", "featureID": "GF_000001"},
             ),
             GffFeature(
+                feature_id="GF_000002",
                 seqid="ExampleGene",
                 source="trustedSource",
                 type_="exon",
@@ -268,9 +297,10 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 score=".",
                 strand="+",
                 phase=".",
-                attributes={"ID": "ExampleGene.exon1", "Parent": "ExampleGene"},
+                attributes={"ID": "ExampleGene.exon1", "parentID": "ExampleGene", "featureID": "GF_000002"},
             ),
             GffFeature(
+                feature_id="GF_000003",
                 seqid="ExampleGene",
                 source="trustedSource",
                 type_="CDS",
@@ -279,15 +309,45 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 score=".",
                 strand="+",
                 phase=".",
-                attributes={"ID": "ExampleGene.CDS.1", "Parent": "ExampleGene"},
+                attributes={"ID": "ExampleGene.CDS.1", "parentID": "ExampleGene", "featureID": "GF_000003"},
             ),
         ],
-        group=GroupedQueryResults(
-            group_id="10..200",
+        intersections=[
+            Intersection(
+                domain_alignment_id="DA_000001",
+                feature_id="GF_000001"
+            ),
+            Intersection(
+                domain_alignment_id="DA_000001",
+                feature_id="GF_000002"
+            ),
+            Intersection(
+                domain_alignment_id="DA_000001",
+                feature_id="GF_000003"
+            ),
+            Intersection(
+                domain_alignment_id="DA_000002",
+                feature_id="GF_000001"
+            ),
+            Intersection(
+                domain_alignment_id="DA_000002",
+                feature_id="GF_000002"
+            ),
+            Intersection(
+                domain_alignment_id="DA_000003",
+                feature_id="GF_000001"
+            ),
+            Intersection(
+                domain_alignment_id="DA_000003",
+                feature_id="GF_000003"
+            ),
+                ],
+        group=Group(
+            id="10..200",
             start=10,
             end=200,
-            n_hits_pos_strand=3,
-            n_hits_neg_strand=0,
+            n_hits_on_pos_strand=3,
+            n_hits_on_neg_strand=0,
         ),
     )
 

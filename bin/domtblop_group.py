@@ -26,6 +26,7 @@ import logging
 import os
 import sys
 from typing import (
+    Dict,
     List,
     Tuple,
 )
@@ -40,6 +41,31 @@ from domtblop_utils import (
     setup_logger,
     read_input,
 )
+
+
+@dataclass
+class GroupParams:
+    """
+    Dataclass to hold group parameters.
+    """
+
+    distance: int
+    both_strands: bool
+    name: str = "group"
+
+    def to_json(self) -> Dict:
+        """
+        Returns the dataclass as a JSON string.
+
+        Returns:
+            str: JSON string representation of the dataclass.
+        """
+
+        return {
+            "name": self.name,
+            "distance": self.distance,
+            "both_strands": self.both_strands,
+        }
 
 
 @dataclass
@@ -265,6 +291,14 @@ def run(args: List[str]) -> None:
                 n_hits_on_pos_strand=group.n_hits_pos_strand(),
                 n_hits_on_neg_strand=group.n_hits_neg_strand(),
             )
+
+            query_result.metadata.parameters_used.append(
+                GroupParams(
+                    distance=config.distance,
+                    both_strands=config.both_strands,
+                )
+            )
+            query_result.update_modified_at()
 
             try:
                 print(json.dumps(query_result, cls=CustomEncoder))

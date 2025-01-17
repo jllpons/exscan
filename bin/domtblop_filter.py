@@ -96,6 +96,7 @@ class FilterParams:
     _filter_enum: Enum
     value: int | float | None
     keep_best: bool
+    name: str = "filter"
 
     @property
     def filter_type(self) -> str:
@@ -132,6 +133,7 @@ class FilterParams:
 
     def to_json(self) -> Dict:
         return {
+            "name": self.name,
             "filter_type": self.filter_type,
             "value": self.value,
             "keep_best": self.keep_best,

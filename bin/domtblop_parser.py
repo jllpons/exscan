@@ -204,6 +204,9 @@ class GffFeature:
     Represents a GFF feature that intersects with a domain alignment fragment.
 
     Attributes:
+        feature_id (str): Identifier of the feature.
+                            - GF_NNNN: GFF feature
+                            - DA_NNNN: Domain alignment (query_result.domain_hits.domain_alignments.domain_alignment_id)
         seqid (str): Sequence identifier.
         source (str): Source of the feature.
         type_ (str): Type of the feature.
@@ -215,6 +218,7 @@ class GffFeature:
         attributes (Dict[str, str]): Additional attributes of the feature
     """
 
+    feature_id: str
     seqid: str
     source: str
     type_: str
@@ -233,6 +237,7 @@ class GffFeature:
             Dict: JSON struct of the GFF feature.
         """
         return {
+            "feature_id": self.feature_id,
             "seqid": self.seqid,
             "source": self.source,
             "type": self.type_,
@@ -260,6 +265,7 @@ class GffFeature:
         """
 
         try:
+            feature_id = json_data["feature_id"]
             seqid = json_data["seqid"]
             source = json_data["source"]
             type_ = json_data["type"]
@@ -277,6 +283,7 @@ class GffFeature:
             raise KeyError(f"Missing key: {e}")
 
         feature = cls(
+            feature_id=feature_id,
             seqid=seqid,
             source=source,
             type_=type_,
@@ -312,8 +319,12 @@ class GffFeature:
 
         fields = line.strip().split("\t")
         attributes = _parse_attributes(fields[8])
+        feature_id = attributes.get("featureID", None)
+        if not feature_id:
+            feature_id = "TODO"
 
         return cls(
+            feature_id=feature_id,
             seqid=fields[0],
             source=fields[1],
             type_=fields[2],
@@ -332,6 +343,9 @@ class GffFeature:
         Returns:
             str: GFF3 line of the GFF feature.
         """
+        if "featureID" in self.attributes.keys():
+            self.attributes["featureID"] = self.feature_id
+
         attributes = ";".join(f"{k}={v}" for k, v in self.attributes.items())
 
         return "\t".join(
@@ -347,30 +361,6 @@ class GffFeature:
                 attributes,
             ]
         )
-
-
-def print_gff3_feature(feature: GffFeature) -> None:
-    """
-    Print a Gff3Feature object in GFF3 format.
-
-    Args:
-        feature (Gff3Feature): A Gff3Feature object.
-    """
-    print(
-        "\t".join(
-            [
-                feature.seqid,
-                feature.source,
-                feature.type_,
-                str(feature.start),
-                str(feature.end),
-                str(feature.score),
-                feature.strand,
-                str(feature.phase),
-                ";".join(f"{k}={v}" for k, v in feature.attributes.items()),
-            ]
-        )
-    )
 
 
 @dataclass
@@ -390,6 +380,7 @@ class DomainAlignmentFragment:
         sequence (None | str): The sequence of the fragment.
     """
 
+    domain_alignment_id: str
     domain_start: int
     domain_end: int
     domain_strand: str
@@ -409,6 +400,7 @@ class DomainAlignmentFragment:
             Dict: JSON struct of the hmmscan HSP fragment.
         """
         return {
+            "domain_alignment_id": self.domain_alignment_id,
             "domain_start": self.domain_start,
             "domain_end": self.domain_end,
             "domain_strand": self.domain_strand,
@@ -436,6 +428,7 @@ class DomainAlignmentFragment:
         """
 
         try:
+            domain_alignment_id = json_data["domain_alignment_id"]
             domain_start = json_data["domain_start"]
             domain_end = json_data["domain_end"]
             domain_strand = json_data["domain_strand"]
@@ -450,6 +443,7 @@ class DomainAlignmentFragment:
             raise KeyError(f"Missing key: {e}")
 
         hspfrag = cls(
+            domain_alignment_id=domain_alignment_id,
             domain_start=domain_start,
             domain_end=domain_end,
             domain_strand=domain_strand,
@@ -657,6 +651,57 @@ class HmmscanDomainHit:
 
 
 @dataclass
+class Intersection:
+    """
+    """
+
+    domain_alignment_id: str
+    feature_id: str
+
+    def to_json(self) -> Dict:
+        """
+        Serialize the hit into a JSON struct.
+
+        Returns:
+            Dict: JSON struct of the hit.
+        """
+
+        return {
+            "domain_alignment_id": self.domain_alignment_id,
+            "feature_id": self.feature_id,
+        }
+
+    @classmethod
+    def from_json(cls, json_data: Dict) -> "Intersection":
+        """
+        Deserialize a JSON struct into a Intersection.
+
+        Args:
+            json_data (Dict): JSON string to deserialize.
+
+        Returns:
+            Intersection: Deserialized Intersection.
+
+        Raises:
+            KeyError: If a required key is missing in the JSON struct.
+        """
+
+        try:
+            domain_alignment_id = json_data["domain_alignment_id"]
+            feature_id = json_data["feature_id"]
+
+        except KeyError as e:
+            raise KeyError(f"Missing key: {e}")
+
+        intersection = cls(
+            domain_alignment_id=domain_alignment_id,
+            feature_id=feature_id,
+        )
+
+        return intersection
+
+
+@dataclass
 class Group:
     """
     Holds information about a group of HmmscanQueryResults that are found within
@@ -751,7 +796,8 @@ class HmmscanQueryResult:
     parent_sequence: ParentSequence | None = None
     domain_hits: List[HmmscanDomainHit] = field(default_factory=list)
 
-    intersecting_features: None | List[GffFeature] = None
+    gff_features: None | List[GffFeature] = None
+    intersections: None | List[Intersection] = None
     group: None | Group = None
 
     def __post_init__(self):
@@ -829,8 +875,11 @@ class HmmscanQueryResult:
             if self.parent_sequence
             else None,
             "domain_hits": [i.to_json() for i in self.domain_hits],
-            "intersecting_features": [i.to_json() for i in self.intersecting_features]
-            if self.intersecting_features
+            "gff_features": [i.to_json() for i in self.gff_features]
+            if self.gff_features
+            else None,
+            "intersections": [i.to_json() for i in self.intersections]
+            if self.intersections
             else None,
             "group": self.group.to_json() if self.group else None,
         }
@@ -872,7 +921,8 @@ class HmmscanQueryResult:
             protein_sequence = json_data["protein_sequence"]
             source_sequence = json_data["source_sequence"]
             domain_hits = json_data["domain_hits"]
-            intersecting_features = json_data["intersecting_features"]
+            gff_features = json_data["gff_features"]
+            intersections = json_data["intersections"]
             group = json_data["group"]
 
         except KeyError as e:
@@ -885,10 +935,11 @@ class HmmscanQueryResult:
             protein_sequence=protein_sequence,
             source_sequence=source_sequence,
             domain_hits=[HmmscanDomainHit.from_json(i) for i in domain_hits],
-            intersecting_features=[
-                GffFeature.from_json(i) for i in intersecting_features
-            ]
-            if intersecting_features
+            gff_features=[GffFeature.from_json(i) for i in gff_features]
+            if gff_features
+            else None,
+            intersections=[Intersection.from_json(i) for i in intersections]
+            if intersections
             else None,
             group=Group.from_json(group) if group else None,
         )
@@ -930,10 +981,10 @@ class HmmscanQueryResult:
         Returns:
             bool: True if the query result has intersecting GFF features, False otherwise.
         """
-        if not self.intersecting_features:
+        if not self.intersections:
             return False
 
-        return any(self.intersecting_features)
+        return any(self.intersections)
 
     def compute_domain_aligment_fragment_absolut_positions(self) -> None:
         """
@@ -942,8 +993,8 @@ class HmmscanQueryResult:
         Returns:
             None
         """
-        if self.sequence_type not in ["dna", "rna"]:
-            return
+        if self.sequence_type not in ["dna"]:
+            return None
 
         strand = self.parent_sequence.strand
 
@@ -1118,6 +1169,7 @@ def parse_query_result(
 
     query_id = query_result.id
 
+    n_profile_hmm_alignments = 0
     domain_hits = []
     for domain_hit in query_result:
         accession = domain_hit.accession
@@ -1140,6 +1192,9 @@ def parse_query_result(
             alignment_fragments = []
 
             for fragment in alignment:
+                n_profile_hmm_alignments += 1
+
+                domain_alignment_id = f"DA_{str(n_profile_hmm_alignments).zfill(6)}"
                 domain_start = fragment.hit_start
                 domain_end = fragment.hit_end
                 domain_strand = fragment.hit_strand
@@ -1149,6 +1204,7 @@ def parse_query_result(
 
                 alignment_fragments.append(
                     DomainAlignmentFragment(
+                        domain_alignment_id=domain_alignment_id,
                         domain_start=domain_start,
                         domain_end=domain_end,
                         domain_strand=domain_strand,

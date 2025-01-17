@@ -38,6 +38,7 @@ import logging
 import os
 import sys
 from typing import (
+    Dict,
     List,
     Tuple,
 )
@@ -46,12 +47,25 @@ from domtblop_parser import (
     CustomEncoder,
     GffFeature,
     HmmscanQueryResult,
+    Intersection,
     UnexpectedQueryIdFormat,
 )
 from domtblop_utils import (
     setup_logger,
     read_input,
 )
+
+
+@dataclass
+class GffintersectParams:
+    bedtools_intersect_output: str
+    name: str = "gffintersect"
+
+    def to_json(self) -> Dict[str, str]:
+        return {
+            "name": self.name,
+            "bedtools_intersect_output": self.bedtools_intersect_output,
+        }
 
 
 @dataclass
@@ -202,12 +216,16 @@ def run(args: List[str]) -> None:
         logger.debug(f"Succesfully parsed query result: {query_result}")
         query_results.append(query_result)
 
-    # Create a hashmap to quickly find the index of a query result by its query_id
+    # Given a list of query results, create a hashmap where the key is the query_id 
+    # and the value is the index of the query result in the list.
+    # This allows us to quickly find the index of a query result in the list by its query_id
     query_results_index_hashmap = dict()
     for i, query_result in enumerate(query_results):
         query_results_index_hashmap[query_result.query_id.replace('"', "")] = i
 
     # Iterate over the bedtools intersect output and add the intersecting features to the corresponding serialized query result
+    intersect_b_feature_hashmap = dict()
+    n_unique_features = 1
     for line in bedtools_intersect_file_handle:
         logger.debug(f"Processing line: {line}")
 
@@ -218,10 +236,16 @@ def run(args: List[str]) -> None:
             logger.error(e)
             sys.exit(1)
 
-        intersect_a_id = intersect.a.attributes.get("ID")
+        if intersect.b.to_gff3() not in intersect_b_feature_hashmap:
+            intersect_b_feature_hashmap[intersect.b.to_gff3()] = n_unique_features
+            n_unique_features += 1
+
+        intersect.b.feature_id = f"GF_{str(intersect_b_feature_hashmap.get(intersect.b.to_gff3())).zfill(6)}"
+
+        intersect_a_id = intersect.a.attributes.get("parentID", None)
         intersect_a_id = intersect_a_id.replace('"', "") if intersect_a_id else None
         if not intersect_a_id:
-            logger.error(f"Feature A does not have an ID in attributes: {intersect.a}")
+            logger.error(f"Feature A does not have an parentID in attributes: {intersect.a}")
             logger.error(f"Problematic line: {line}")
             sys.exit(1)
         elif intersect_a_id not in query_results_index_hashmap:
@@ -230,16 +254,31 @@ def run(args: List[str]) -> None:
             continue
 
         i = query_results_index_hashmap[intersect_a_id]
-        if query_results[i].gff_intersecting_features is None:
-            query_results[i].gff_intersecting_features = []
+        query_result = query_results[i]
+        if query_result.gff_features is None:
+            query_result.gff_features = []
+        if query_result.intersections is None:
+            query_result.intersections = []
 
-        query_results[
-            query_results_index_hashmap[intersect_a_id]
-        ].gff_intersecting_features.append(intersect.b)
+        if intersect.b.feature_id not in [f.feature_id for f in query_result.gff_features]:
+            query_result.gff_features.append(intersect.b)
+
+        query_result.intersections.append(Intersection(
+            domain_alignment_id=intersect.a.feature_id,
+            feature_id=intersect.b.feature_id,
+            ))
+
 
     # Print the updated query results
     for query_result in query_results:
         try:
+            query_result.metadata.parameters_used.append(
+                GffintersectParams(
+                    bedtools_intersect_output=config.bedtools_intersect_output,
+                )
+            )
+            query_result.update_modified_at()
+
             print(json.dumps(query_result, cls=CustomEncoder))
         except BrokenPipeError:
             devnull = os.open(os.devnull, os.O_WRONLY)

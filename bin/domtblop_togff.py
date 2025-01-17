@@ -60,6 +60,8 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
     Returns:
         List[Gff3Feature]: A list of Gff3Feature objects.
     """
+    if not query_result.parent_sequence:
+        raise ValueError(f"No parent sequence found in query result: {query_result.query_id}")
     features = []
 
     seqid = query_result.parent_sequence.sequence_id
@@ -84,7 +86,8 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
                 )
                 score = domain_alignment.independent_evalue
                 attributes = {
-                    "ID": f'"{query_result.query_id}"',
+                    "featureID": domain_alignment_fragment.domain_alignment_id,
+                    "parentID": query_result.query_id,
                     "DomainName": domain_hit.name,
                 }
 
@@ -95,6 +98,7 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
 
                 features.append(
                     GffFeature(
+                        feature_id=domain_alignment_fragment.domain_alignment_id,
                         seqid=seqid,
                         source=source,
                         type_=type_,
@@ -116,12 +120,13 @@ def gff3_from_query_result_intersecting(
     """ """
     features = []
 
-    if not query_result.gff_intersecting_features:
+    if not query_result.gff_features:
         return features
 
-    for intersecting_gff in query_result.gff_intersecting_features:
+    for intersecting_gff in query_result.gff_features:
         features.append(
             GffFeature(
+                feature_id=intersecting_gff.feature_id,
                 seqid=intersecting_gff.seqid,
                 source=intersecting_gff.source,
                 type_=intersecting_gff.type_,

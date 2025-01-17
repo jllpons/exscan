@@ -291,6 +291,37 @@ process DOMTBLOP_TOBED {
 }
 
 
+process DOMTBLOP_TOCSV {
+    label 'process_single'
+
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
+        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+
+    publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.csv"
+
+    input:
+    path qresults_serialized
+
+    output:
+    path '*sequenceCentric.csv', emit: qresults_sequence_csv
+    path '*domainCentric.csv',   emit: qresults_domain_csv
+    path 'versions.yml',        emit: versions
+
+    script:
+    """
+    domtblop.py tocsv ${qresults_serialized} --kind sequence > ${qresults_serialized.baseName}.sequenceCentric.csv
+    domtblop.py tocsv ${qresults_serialized} --kind domain   > ${qresults_serialized.baseName}.domainCentric.csv
+
+    cat <<-END_VERSIONS > versions.yml
+    ${task.process}:
+        Python: \$(python -V | awk '{print \$2}')
+        Biopython: \$(python -c "import Bio; print(Bio.__version__)")
+    END_VERSIONS
+    """
+}
+
+
 process DOMTBLOP_TOFASTA {
     label 'process_single'
 

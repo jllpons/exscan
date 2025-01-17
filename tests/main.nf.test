@@ -1,14 +1,22 @@
 nextflow_pipeline {
 
-    name "Test Workflow main.nf on protein sequence"
+    name "Test Workflow main.nf"
     script "main.nf"
 
     test("Testing main.nf on protein sequence, should run without failures") {
 
         when {
             params {
-                // define parameters here. Example: 
-                // outdir = "tests/results"
+                fasta               = "${projectDir}/data/tests/single_protein.fasta"
+                hmmdb               = "${projectDir}/data/tests/hmmdb"
+                sequence_type       = "protein"
+                dom_ieval_filter    = "1e-07"
+                min_alignment_len   = 16
+                grouping_distance   = null
+                gff_intersect       = null
+                keep_only_intersect = false
+
+                outdir              = "nf-test_single_protein"
             }
         }
 
@@ -32,6 +40,28 @@ nextflow_pipeline {
                 keep_only_intersect = false
 
                 outdir              = "nf-test_single_dna"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+    test("Testing main.nf on dna sequence and finding GFF intersecting features, should run without failures") {
+
+        when {
+            params {
+                fasta               = "${projectDir}/data/tests/single_nucleotide.fasta"
+                hmmdb               = "${projectDir}/data/tests/hmmdb"
+                sequence_type       = "dna"
+                dom_ieval_filter    = "1e-07"
+                min_alignment_len   = 16
+                grouping_distance   = 1375
+                gff_intersect       = "${projectDir}/data/tests/single_nucleotide_features_to_intersect.gff"
+                keep_only_intersect = false
+
+                outdir              = "nf-test_single_dna_gff_intersect"
             }
         }
 

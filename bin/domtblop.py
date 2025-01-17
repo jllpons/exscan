@@ -80,6 +80,11 @@ def main():
 
         run(sys.argv[2:])
 
+    elif cmd == "tocsv":
+        from domtblop_tocsv import run
+
+        run(sys.argv[2:])
+
     elif cmd == "tofasta":
         from domtblop_tofasta import run
 
