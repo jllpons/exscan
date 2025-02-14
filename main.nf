@@ -27,6 +27,9 @@ Optional Arguments:
     --dom_ieval_filter <val>    : Filter domain alignment by individual E-value [default: ${params.dom_ieval_filter}]
                                   Retains alignments with individual E-values **equal or less** than this value
 
+    --keep-best-hit             : Retain only the best hit for each query sequence according to the independent E-value
+                                  [default: ${params.keep_best_hit}]
+
     --min_alignment_len <val>   : Minimum length for domain alignments [default: ${params.min_alignment_len}]
                                   Retains alignments with length **equal or more** than this value
 
@@ -52,6 +55,7 @@ fasta               : ${params.fasta}
 hmmdb               : ${params.hmmdb}
 sequence_type       : ${params.sequence_type}
 dom_ieval_filter    : ${params.dom_ieval_filter}
+keep_best_hit       : ${params.keep_best_hit}
 min_alignment_len   : ${params.min_alignment_len}
 grouping_distance   : ${params.grouping_distance}
 gff_intersect       : ${params.gff_intersect}
@@ -181,6 +185,7 @@ workflow {
         params.grouping_distance,
         params.hmmdb_dir,
         params.hmmdb_file,
+        params.keep_best_hit,
         params.keep_only_intersect,
         params.min_alignment_len,
         ch_versions,

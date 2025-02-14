@@ -216,7 +216,7 @@ def run(args: List[str]) -> None:
         logger.debug(f"Succesfully parsed query result: {query_result}")
         query_results.append(query_result)
 
-    # Given a list of query results, create a hashmap where the key is the query_id 
+    # Given a list of query results, create a hashmap where the key is the query_id
     # and the value is the index of the query result in the list.
     # This allows us to quickly find the index of a query result in the list by its query_id
     query_results_index_hashmap = dict()
@@ -224,6 +224,11 @@ def run(args: List[str]) -> None:
         query_results_index_hashmap[query_result.query_id.replace('"', "")] = i
 
     # Iterate over the bedtools intersect output and add the intersecting features to the corresponding serialized query result
+    # 'intersect_b_feature_hashmap' is used to keep track of the unique feature in the intersect_b column
+    # Keep in mind that a feature in the intersect_b column can be repeated multiple times,
+    # where each time will intersect with a different hmm domain alignment.
+    # We want to asign a unique feature_id to each unique feature in the intersect_b column
+    # so we can reference it in the serialized query result.
     intersect_b_feature_hashmap = dict()
     n_unique_features = 1
     for line in bedtools_intersect_file_handle:
@@ -240,12 +245,16 @@ def run(args: List[str]) -> None:
             intersect_b_feature_hashmap[intersect.b.to_gff3()] = n_unique_features
             n_unique_features += 1
 
-        intersect.b.feature_id = f"GF_{str(intersect_b_feature_hashmap.get(intersect.b.to_gff3())).zfill(6)}"
+        intersect.b.feature_id = (
+            f"GF_{str(intersect_b_feature_hashmap.get(intersect.b.to_gff3()))}"
+        )
 
         intersect_a_id = intersect.a.attributes.get("parentID", None)
         intersect_a_id = intersect_a_id.replace('"', "") if intersect_a_id else None
         if not intersect_a_id:
-            logger.error(f"Feature A does not have an parentID in attributes: {intersect.a}")
+            logger.error(
+                f"Feature A does not have an parentID in attributes: {intersect.a}"
+            )
             logger.error(f"Problematic line: {line}")
             sys.exit(1)
         elif intersect_a_id not in query_results_index_hashmap:
@@ -260,14 +269,17 @@ def run(args: List[str]) -> None:
         if query_result.intersections is None:
             query_result.intersections = []
 
-        if intersect.b.feature_id not in [f.feature_id for f in query_result.gff_features]:
+        if intersect.b.feature_id not in [
+            f.feature_id for f in query_result.gff_features
+        ]:
             query_result.gff_features.append(intersect.b)
 
-        query_result.intersections.append(Intersection(
-            domain_alignment_id=intersect.a.feature_id,
-            feature_id=intersect.b.feature_id,
-            ))
-
+        query_result.intersections.append(
+            Intersection(
+                domain_alignment_id=intersect.a.feature_id,
+                feature_id=intersect.b.feature_id,
+            )
+        )
 
     # Print the updated query results
     for query_result in query_results:

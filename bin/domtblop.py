@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-__version__ = "0.1.0"
-
 """
 Perform different operations on query results from a hmmscan domtblout files.
 
@@ -32,6 +30,9 @@ Options:
 """
 
 import sys
+
+
+__version__ = "0.1.0"
 
 
 def main():

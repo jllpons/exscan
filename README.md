@@ -20,8 +20,8 @@ performs the following steps:
 3. **Perform different operations on each query result**. Among others, operations include:
     - Filtering the results by e-value, score, and coverage.
     - Selecting the best scoring hit for each translated ORF or full protein sequence.
-    - Comparing hits with a GFF file to retrain the features intersecting with the hits.
-    - Writing profile HMM hits as FASTA, GFF, CSV...
+    - Comparing hits with a GFF file to retrain the GFF features intersecting with the hits.
+    - Writing profile HMM hits in various formats such as FASTA, GFF, CSV...
 
 All operations are handled via [`python`](<https://www.python.org/>), [`biopython`](<https://biopython.org/>), [`jq`](<https://jqlang.github.io/jq/>), and [`bedtools`](<https://bedtools.readthedocs.io/en/latest/>).
 

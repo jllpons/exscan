@@ -62,7 +62,6 @@ def mk_plots_dir() -> None:
 
 
 def mk_to_png_script() -> None:
-
     script = r"""
 #!/usr/bin/env bash
 
@@ -123,8 +122,7 @@ def mk_nhits_per_profile_barplot(
 def mk_nuniqhits_per_profile_sequence_level_barplot(
     query_results: List[HmmscanQueryResult],
     logger: logging.Logger,
-    ) -> None:
-
+) -> None:
     data = {"hmmProfile": []}
     for query_result in query_results:
         profile_hits = set()
@@ -144,7 +142,7 @@ def mk_nuniqhits_per_profile_sequence_level_barplot(
         data=df,
         ax=ax,
         order=df["hmmProfile"].value_counts().index,
-        )
+    )
 
     try:
         ax.bar_label(ax.containers[0], fontsize=8)
@@ -383,6 +381,7 @@ def mk_upset_hits_per_sequence(
         show_counts=True,
         show_percentages=True,
         element_size=70,
+        min_subset_size=2,
     )
 
     upset.plot()
@@ -495,14 +494,14 @@ def run(args: List[str]) -> None:
 
     mk_nuniqhits_per_profile_sequence_level_barplot(query_results, logger)
 
-    #mk_nhits_per_profile_barplot(query_results, logger)
+    # mk_nhits_per_profile_barplot(query_results, logger)
 
-    #mk_nhits_per_profile_and_per_chromosome_barplot(query_results, logger)
+    # mk_nhits_per_profile_and_per_chromosome_barplot(query_results, logger)
 
     mk_upset_hits_per_sequence(query_results, logger)
 
-    #mk_violinplot_evalue_distribution_per_profile(query_results, logger)
+    # mk_violinplot_evalue_distribution_per_profile(query_results, logger)
 
-    #mk_violinplot_aligment_length_distribution_per_profile(query_results, logger)
+    # mk_violinplot_aligment_length_distribution_per_profile(query_results, logger)
 
-    #mk_violin_bitscore_distribution_per_profile(query_results, logger)
+    # mk_violin_bitscore_distribution_per_profile(query_results, logger)

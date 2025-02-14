@@ -75,6 +75,9 @@ class QueryGroup:
     """
 
     query_results: List[HmmscanQueryResult]
+    domain_alignments_in_group: List[str] = []
+    domain_alignments_in_pos_strand: List[str] = []
+    domain_alignments_in_neg_strand: List[str] = []
 
     def start(self) -> int:
         """
@@ -111,6 +114,21 @@ class QueryGroup:
         """
 
         return f"{self.start()}..{self.end()}"
+
+    def update_domain_alignments(self) -> None:
+        for query_result in self.query_results:
+            for domain_hit in query_result.domain_hits:
+                for domain_alignment in domain_hit.domain_alignments:
+                    for (
+                        domain_alignment_fragment
+                    ) in domain_alignment.alignment_fragments:
+                        id = domain_alignment_fragment.domain_alignment_id
+                        self.domain_alignments_in_group.append(id)
+
+                        if query_result.parent_sequence.strand == "+":
+                            self.domain_alignments_in_pos_strand.append(id)
+                        else:
+                            self.domain_alignments_in_neg_strand.append(id)
 
     def n_hits_pos_strand(self) -> int:
         """ """
@@ -255,7 +273,7 @@ def run(args: List[str]) -> None:
         given_distance = prev_group.end() + config.distance
 
         # Since query results have been sorted by start position, we can
-        # safely assume current query result does not stat before the previous one
+        # safely assume current query result does not start before the previous one
         if query_result.parent_sequence.start < given_distance:
             logger.debug(
                 f"Query Result with id: {query_result.query_id} has start "
@@ -283,13 +301,16 @@ def run(args: List[str]) -> None:
     logger.debug([group.group_id() for group in groups])
 
     for group in groups:
+        group.update_domain_alignments()
+
         for query_result in group.query_results:
             query_result.group = Group(
                 id=group.group_id(),
                 start=group.start(),
                 end=group.end(),
-                n_hits_on_pos_strand=group.n_hits_pos_strand(),
-                n_hits_on_neg_strand=group.n_hits_neg_strand(),
+                domain_alignments_in_group=group.domain_alignments_in_group,
+                domain_alignments_in_pos_strand=group.domain_alignments_in_pos_strand,
+                domain_alignments_in_neg_strand=group.domain_alignments_in_neg_strand,
             )
 
             query_result.metadata.parameters_used.append(

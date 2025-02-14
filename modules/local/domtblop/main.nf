@@ -96,21 +96,33 @@ process DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE {
     input:
     path qresults_serialized
     val threshold
+    val keep_best_hit
 
     output:
     path '*.filterDomIEvalue.json', emit: qresults_serialized
     path 'versions.yml',        emit: versions
 
     script:
-    """
-    domtblop.py filter --dom-ievalue ${threshold} ${qresults_serialized} > ${qresults_serialized.baseName}.filterDomIEvalue.json
 
-    cat <<-END_VERSIONS > versions.yml
-    ${task.process}:
-        Python: \$(python -V | awk '{print \$2}')
-        Biopython: \$(python -c "import Bio; print(Bio.__version__)")
-    END_VERSIONS
-    """
+    if (keep_best_hit)
+        """
+        domtblop.py filter --best-hit --dom-ievalue ${threshold} ${qresults_serialized} > ${qresults_serialized.baseName}.filterDomIEvalue.json
+        cat <<-END_VERSIONS > versions.yml
+        ${task.process}:
+            Python: \$(python -V | awk '{print \$2}')
+            Biopython: \$(python -c "import Bio; print(Bio.__version__)")
+        END_VERSIONS
+        """
+    else
+        """
+        domtblop.py filter --dom-ievalue ${threshold} ${qresults_serialized} > ${qresults_serialized.baseName}.filterDomIEvalue.json
+
+        cat <<-END_VERSIONS > versions.yml
+        ${task.process}:
+            Python: \$(python -V | awk '{print \$2}')
+            Biopython: \$(python -c "import Bio; print(Bio.__version__)")
+        END_VERSIONS
+        """
 }
 
 
@@ -306,6 +318,9 @@ process DOMTBLOP_TOCSV {
     output:
     path '*sequenceCentric.csv', emit: qresults_sequence_csv
     path '*domainCentric.csv',   emit: qresults_domain_csv
+    //path '*groupCentric.csv',    emit: qresults_group_csv
+    //path '*gffIntersect.csv',    emit: qresults_gff_csv
+    //path '*intersectionMap.csv', emit: qresults_map_csv
     path 'versions.yml',        emit: versions
 
     script:
@@ -313,12 +328,18 @@ process DOMTBLOP_TOCSV {
     domtblop.py tocsv ${qresults_serialized} --kind sequence > ${qresults_serialized.baseName}.sequenceCentric.csv
     domtblop.py tocsv ${qresults_serialized} --kind domain   > ${qresults_serialized.baseName}.domainCentric.csv
 
+
     cat <<-END_VERSIONS > versions.yml
     ${task.process}:
         Python: \$(python -V | awk '{print \$2}')
         Biopython: \$(python -c "import Bio; print(Bio.__version__)")
     END_VERSIONS
     """
+    /*
+    domtblop.py tocsv ${qresults_serialized} --kind group    > ${qresults_serialized.baseName}.groupCentric.csv
+    domtblop.py tocsv ${qresults_serialized} --kind gff      > ${qresults_serialized.baseName}.gffIntersect.csv
+    domtblop.py tocsv ${qresults_serialized} --kind map      > ${qresults_serialized.baseName}.intersectionMap.csv
+    */
 }
 
 

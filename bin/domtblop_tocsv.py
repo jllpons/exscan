@@ -14,7 +14,12 @@ Arguments:
 Options:
     --kind STR                      The kind of output to generate.
                                     Either sequence-centric or domain alignment-centric.
-                                    Choices: ["sequence", "domain"] [default: "sequence"]
+                                    Choices: {"sequence", "domain", "gff", "map", "group"} [default: "sequence"]
+                                      - "sequence": One row per sequence.
+                                      - "domain": One row per domain alignment.
+                                      - "gff": One row per each GFF feature that intersects with a domain alignment.
+                                      - "map": Map intersecting GFF features to domain alignments.
+                                      - "group": One row per group of domain alignments.
 
     --separator STR                 The separator to use in the CSV file. [default: ","]
     -h, --help                      Show this help message and exit
@@ -47,6 +52,7 @@ from domtblop_utils import (
     read_input,
 )
 
+
 @dataclass
 class SequenceCentricTableRecord:
     """
@@ -60,7 +66,7 @@ class SequenceCentricTableRecord:
     """
 
     query_id: str
-    #sequence_type: str
+    # sequence_type: str
     # parent_sequence_id actually goes here in the csv output
     _domain_hits: Dict[str, int]
     # group_id: str
@@ -69,30 +75,29 @@ class SequenceCentricTableRecord:
     # source_sequence: str
 
     parent_sequence_id: str | None = None
-    #group_id: str | None = None
-    #gff_features: List[GffFeature] | None = None
+    # group_id: str | None = None
+    # gff_features: List[GffFeature] | None = None
     protein_sequence: str | None = None
     source_sequence: str | None = None
 
     def __post_init__(self):
-        self.protein_length = str(len(self.protein_sequence)) if self.protein_sequence else ""
+        self.protein_length = (
+            str(len(self.protein_sequence)) if self.protein_sequence else ""
+        )
 
     def to_csv(self, separator: str = ",") -> str:
-
         domain_hits = [
-                str(observation)
-                for _domain, observation in self._domain_hits.items()
+            str(observation) for _domain, observation in self._domain_hits.items()
         ]
-
 
         return separator.join(
             [
                 self.query_id,
-                #self.sequence_type,
+                # self.sequence_type,
                 self.parent_sequence_id if self.parent_sequence_id else "",
                 separator.join(domain_hits),
-                #self.group_id if self.group_id else "",
-                #"::".join([f'"{str(gff.to_json())}"' for gff in self.gff_features]) if self.gff_features else "",
+                # self.group_id if self.group_id else "",
+                # "::".join([f'"{str(gff.to_json())}"' for gff in self.gff_features]) if self.gff_features else "",
                 self.protein_length,
                 self.protein_sequence if self.protein_sequence else "",
                 self.source_sequence if self.source_sequence else "",
@@ -100,21 +105,16 @@ class SequenceCentricTableRecord:
         )
 
     def csv_headers(self, separator: str = ",") -> str:
-
-
-        domain_hits = [
-            domain
-            for domain, _observation in self._domain_hits.items()
-        ]
+        domain_hits = [domain for domain, _observation in self._domain_hits.items()]
 
         return separator.join(
             [
                 "query_id",
-                #"sequence_type",
+                # "sequence_type",
                 "parent_sequence_id",
                 separator.join(domain_hits),
-                #"group_id",
-                #"gff_features",
+                # "group_id",
+                # "gff_features",
                 "protein_length",
                 "protein_sequence",
                 "source_sequence",
@@ -126,8 +126,7 @@ class SequenceCentricTableRecord:
         cls,
         query_result: HmmscanQueryResult,
         domain_set: Set[str],
-        ) -> "SequenceCentricTableRecord":
-
+    ) -> "SequenceCentricTableRecord":
         domain_hits = {domain: 0 for domain in domain_set}
         for domain_hit in query_result.domain_hits:
             if domain_hit.name in domain_set:
@@ -135,11 +134,13 @@ class SequenceCentricTableRecord:
 
         return cls(
             query_id=query_result.query_id,
-            #sequence_type=query_result.sequence_type,
-            parent_sequence_id=query_result.parent_sequence.sequence_id if query_result.parent_sequence else None,
+            # sequence_type=query_result.sequence_type,
+            parent_sequence_id=query_result.parent_sequence.sequence_id
+            if query_result.parent_sequence
+            else None,
             _domain_hits=domain_hits,
-            #group_id=query_result.group.id if query_result.group else None,
-            #gff_features=query_result.gff_features,
+            # group_id=query_result.group.id if query_result.group else None,
+            # gff_features=query_result.gff_features,
             protein_sequence=query_result.protein_sequence,
             source_sequence=query_result.source_sequence,
         )
@@ -147,7 +148,7 @@ class SequenceCentricTableRecord:
 
 @dataclass
 class DomainAlignmentCentricTableRecord:
-
+    domain_alignment_id: str
     query_id: str
     domain_accession: str
     domain_name: str
@@ -167,9 +168,9 @@ class DomainAlignmentCentricTableRecord:
         self.alignment_length = str(self.sequence_end - self.sequence_start + 1)
 
     def to_csv(self, separator: str = ",") -> str:
-
         return separator.join(
             [
+                self.domain_alignment_id,
                 self.query_id,
                 self.domain_accession,
                 self.domain_name,
@@ -184,13 +185,16 @@ class DomainAlignmentCentricTableRecord:
                 str(self.sequence_end),
                 self.alignment_length,
                 self.protein_sequence if self.protein_sequence else "",
-                ";".join([gff.feature_id for gff in self.gff_features]) if self.gff_features else "",
+                ";".join([gff.feature_id for gff in self.gff_features])
+                if self.gff_features
+                else "",
             ]
         )
 
     def csv_headers(self, separator: str = ",") -> str:
         return separator.join(
             [
+                "domain_alignment_id",
                 "query_id",
                 "domain_accession",
                 "domain_name",
@@ -212,9 +216,8 @@ class DomainAlignmentCentricTableRecord:
     @classmethod
     def from_domain_hit(
         cls,
-        query_result: HmmscanQueryResult
-        ) -> List["DomainAlignmentCentricTableRecord"]:
-
+        query_result: HmmscanQueryResult,
+    ) -> List["DomainAlignmentCentricTableRecord"]:
         records = []
 
         for domain_hit in query_result.domain_hits:
@@ -222,6 +225,7 @@ class DomainAlignmentCentricTableRecord:
                 for domain_alignment_fragment in domain_alignment.alignment_fragments:
                     records.append(
                         cls(
+                            domain_alignment_id=domain_alignment_fragment.domain_alignment_id,
                             query_id=query_result.query_id,
                             domain_accession=domain_hit.accession,
                             domain_name=domain_hit.name,
@@ -240,6 +244,188 @@ class DomainAlignmentCentricTableRecord:
                     )
 
         return records
+
+
+@dataclass
+class IntersectingGffFeatureTableRecord:
+    feature_id: str
+    seqid: str
+    source: str
+    type_: str
+    start: int
+    end: int
+    score: str | float
+    strand: str
+    phase: str | int
+    attributes: Dict[str, str]
+
+    def to_csv(self, separator: str = ",") -> str:
+        return separator.join(
+            [
+                self.feature_id,
+                self.seqid,
+                self.source,
+                self.type_,
+                str(self.start),
+                str(self.end),
+                str(self.score),
+                self.strand,
+                str(self.phase),
+                ";".join([f"{k}={v}" for k, v in self.attributes.items()]),
+            ]
+        )
+
+    def csv_headers(self, separator: str = ",") -> str:
+        return separator.join(
+            [
+                "feature_id",
+                "seqid",
+                "source",
+                "type",
+                "start",
+                "end",
+                "score",
+                "strand",
+                "phase",
+                "attributes",
+            ]
+        )
+
+    @classmethod
+    def from_query_result(
+        cls,
+        query_result: HmmscanQueryResult,
+    ) -> List["IntersectingGffFeatureTableRecord"]:
+        if not query_result.gff_features:
+            return []
+
+        records = []
+
+        for gff_feature in query_result.gff_features:
+            records.append(
+                cls(
+                    feature_id=gff_feature.feature_id,
+                    seqid=gff_feature.seqid,
+                    source=gff_feature.source,
+                    type_=gff_feature.type_,
+                    start=gff_feature.start,
+                    end=gff_feature.end,
+                    score=gff_feature.score,
+                    strand=gff_feature.strand,
+                    phase=gff_feature.phase,
+                    attributes=gff_feature.attributes,
+                )
+            )
+
+        return records
+
+
+@dataclass
+class IntersectionMapTableRecord:
+    domain_alignment_id: str
+    feature_id: str
+
+    def to_csv(self, separator: str = ",") -> str:
+        return separator.join(
+            [
+                self.domain_alignment_id,
+                self.feature_id,
+            ]
+        )
+
+    def csv_headers(self, separator: str = ",") -> str:
+        return separator.join(
+            [
+                "domain_alignment_id",
+                "feature_id",
+            ]
+        )
+
+    @classmethod
+    def from_query_result(
+        cls,
+        query_result: HmmscanQueryResult,
+    ) -> List["IntersectionMapTableRecord"]:
+        if not query_result.intersections:
+            return []
+
+        records = []
+
+        for intersection in query_result.intersections:
+            records.append(
+                cls(
+                    domain_alignment_id=intersection.domain_alignment_id,
+                    feature_id=intersection.feature_id,
+                )
+            )
+
+        return records
+
+
+@dataclass
+class GroupTableRecord:
+    group_id: str
+    group_start_position: int
+    group_end_position: int
+    domain_alignments_in_group: List[str]
+    domain_alignments_in_pos_strand: List[str]
+    domain_alignments_in_neg_strand: List[str]
+
+    def __post_init__(self):
+        self.n_domain_alignments = len(self.domain_alignments_in_group)
+        self.n_domain_alignments_in_pos_strand = len(
+            self.domain_alignments_in_pos_strand
+        )
+        self.n_domain_alignments_in_neg_strand = len(
+            self.domain_alignments_in_neg_strand
+        )
+
+    def to_csv(self, separator: str = ",") -> str:
+        return separator.join(
+            [
+                self.group_id,
+                str(self.group_start_position),
+                str(self.group_end_position),
+                str(self.n_domain_alignments),
+                str(self.n_domain_alignments_in_pos_strand),
+                str(self.n_domain_alignments_in_neg_strand),
+                ";".join(self.domain_alignments_in_group),
+                ";".join(self.domain_alignments_in_pos_strand),
+                ";".join(self.domain_alignments_in_neg_strand),
+            ]
+        )
+
+    def csv_headers(self, separator: str = ",") -> str:
+        return separator.join(
+            [
+                "group_id",
+                "group_start_position",
+                "group_end_position",
+                "n_domain_alignments",
+                "n_domain_alignments_in_pos_strand",
+                "n_domain_alignments_in_neg_strand",
+                "domain_alignments_in_group",
+                "domain_alignments_in_pos_strand",
+                "domain_alignments_in_neg_strand",
+            ]
+        )
+
+    @classmethod
+    def from_query_result(
+        cls,
+        query_result: HmmscanQueryResult,
+    ) -> "GroupTableRecord | None":
+        if not query_result.group:
+            return None
+
+        return cls(
+            group_id=query_result.group.id,
+            group_start_position=query_result.group.start,
+            group_end_position=query_result.group.end,
+            domain_alignments_in_group=query_result.group.domain_alignments_in_group,
+            domain_alignments_in_pos_strand=query_result.group.domain_alignments_in_pos_strand,
+            domain_alignments_in_neg_strand=query_result.group.domain_alignments_in_neg_strand,
+        )
 
 
 def setup_argparse() -> argparse.ArgumentParser:
@@ -268,7 +454,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--kind",
         type=str,
         default="sequence",
-        choices=["sequence", "domain"],
+        choices=["sequence", "domain", "gff", "map", "group"],
     )
     parser.add_argument(
         "--separator",
@@ -341,6 +527,7 @@ def run(args: List[str]) -> None:
     except FileNotFoundError:
         sys.exit(1)
 
+    # Parse the serialized query results from JSON to dataclasses again.
     query_results = []
     for line in file_handle:
         try:
@@ -351,6 +538,8 @@ def run(args: List[str]) -> None:
 
         query_results.append(query_result)
 
+    # Make a domain set to be used in the binary representation of the domain hits
+    # in the sequence-centric output.
     domain_set = set()
     for query_result in query_results:
         for domain_hit in query_result.domain_hits:
@@ -358,17 +547,39 @@ def run(args: List[str]) -> None:
 
     table_records = []
     match config.kind:
-        case "domain":
-            table_records.extend(
-                record
-                for query_result in query_results
-                for record in DomainAlignmentCentricTableRecord.from_domain_hit(query_result)
-            )
-
         case "sequence":
             table_records = [
                 SequenceCentricTableRecord.from_query_result(query_result, domain_set)
                 for query_result in query_results
+            ]
+
+        case "domain":
+            for query_result in query_results:
+                table_records.extend(
+                    DomainAlignmentCentricTableRecord.from_domain_hit(query_result)
+                )
+
+        case "gff":
+            for query_result in query_results:
+                table_records.extend(
+                    IntersectingGffFeatureTableRecord.from_query_result(query_result)
+                )
+
+        case "map":
+            for query_result in query_results:
+                table_records.extend(
+                    IntersectionMapTableRecord.from_query_result(query_result)
+                )
+
+        case "group":
+            if not any(query_result.group for query_result in query_results):
+                logger.error("No groups found in the query results.")
+                sys.exit(1)
+
+            table_records = [
+                GroupTableRecord.from_query_result(query_result)
+                for query_result in query_results
+                if query_result.group
             ]
 
         case _:

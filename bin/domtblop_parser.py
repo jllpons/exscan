@@ -40,7 +40,7 @@ from domtblop_utils import (
 )
 
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.1.1"
 
 
 class UnexpectedQueryIdFormat(Exception):
@@ -652,8 +652,7 @@ class HmmscanDomainHit:
 
 @dataclass
 class Intersection:
-    """
-    """
+    """ """
 
     domain_alignment_id: str
     feature_id: str
@@ -719,8 +718,9 @@ class Group:
     id: str
     start: int
     end: int
-    n_hits_on_pos_strand: int
-    n_hits_on_neg_strand: int
+    domain_alignments_in_group: List[str]
+    domain_alignments_in_pos_strand: List[str]
+    domain_alignments_in_neg_strand: List[str]
 
     def to_json(self) -> Dict:
         """
@@ -734,8 +734,9 @@ class Group:
             "id": self.id,
             "start": self.start,
             "end": self.end,
-            "n_hits_on_pos_strand": self.n_hits_on_pos_strand,
-            "n_hits_on_neg_strand": self.n_hits_on_neg_strand,
+            "domain_alignments_in_group": self.domain_alignments_in_group,
+            "domain_alignments_in_pos_strand": self.domain_alignments_in_pos_strand,
+            "domain_alignments_in_neg_strand": self.domain_alignments_in_neg_strand,
         }
 
     @classmethod
@@ -757,8 +758,13 @@ class Group:
             id = json_data["id"]
             group_start = json_data["start"]
             group_end = json_data["end"]
-            n_hits_on_pos_strand = json_data["n_hits_on_pos_strand"]
-            n_hits_on_neg_strand = json_data["n_hits_on_neg_strand"]
+            domain_alignments_in_group = json_data["domain_alignments_in_group"]
+            domain_alignments_in_pos_strand = json_data[
+                "domain_alignments_in_pos_strand"
+            ]
+            domain_alignments_in_neg_strand = json_data[
+                "domain_alignments_in_neg_strand"
+            ]
 
         except KeyError as e:
             raise KeyError(f"Missing key: {e}")
@@ -767,8 +773,9 @@ class Group:
             id=id,
             start=group_start,
             end=group_end,
-            n_hits_on_pos_strand=n_hits_on_pos_strand,
-            n_hits_on_neg_strand=n_hits_on_neg_strand,
+            domain_alignments_in_group=domain_alignments_in_group,
+            domain_alignments_in_pos_strand=domain_alignments_in_pos_strand,
+            domain_alignments_in_neg_strand=domain_alignments_in_neg_strand,
         )
 
         return grouped_query_result
@@ -1039,6 +1046,13 @@ class HmmscanQueryResult:
                     ]
 
 
+def id_generator(prefix: str) -> Generator[str, None, None]:
+    counter = 1
+    while True:
+        yield f"{prefix}{str(counter)}"
+        counter += 1
+
+
 def setup_argparse() -> argparse.ArgumentParser:
     """
         Sets up the argparse instance for command-line arguments.
@@ -1150,6 +1164,7 @@ def parse_hmmscan_domtblout(hmmscan_domtblout: str) -> Generator:
 def parse_query_result(
     query_result: QueryResult,
     seq_type: str,
+    id_generator: Generator[str, None, None],
 ) -> HmmscanQueryResult:
     """
     Parse a QueryResult object from a hmmscan domtbl file.
@@ -1169,7 +1184,6 @@ def parse_query_result(
 
     query_id = query_result.id
 
-    n_profile_hmm_alignments = 0
     domain_hits = []
     for domain_hit in query_result:
         accession = domain_hit.accession
@@ -1192,9 +1206,7 @@ def parse_query_result(
             alignment_fragments = []
 
             for fragment in alignment:
-                n_profile_hmm_alignments += 1
-
-                domain_alignment_id = f"DA_{str(n_profile_hmm_alignments).zfill(6)}"
+                domain_alignment_id = next(id_generator)
                 domain_start = fragment.hit_start
                 domain_end = fragment.hit_end
                 domain_strand = fragment.hit_strand
@@ -1271,11 +1283,15 @@ def run(args: List[str]) -> None:
         logger.error(f"{e}")
         sys.exit(1)
 
+    id_gen = id_generator(prefix="DA_")
+
     for query_result in queryresult_generator:
         logger.debug(f"Parsing query result: {query_result.id}")
 
         try:
-            parsed_query_result = parse_query_result(query_result, config.seq_type)
+            parsed_query_result = parse_query_result(
+                query_result, config.seq_type, id_gen
+            )
         except (UnexpectedQueryIdFormat, ValueError) as e:
             logger.error("Error: {}".format(e))
             exit(1)

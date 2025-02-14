@@ -61,7 +61,9 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
         List[Gff3Feature]: A list of Gff3Feature objects.
     """
     if not query_result.parent_sequence:
-        raise ValueError(f"No parent sequence found in query result: {query_result.query_id}")
+        raise ValueError(
+            f"No parent sequence found in query result: {query_result.query_id}"
+        )
     features = []
 
     seqid = query_result.parent_sequence.sequence_id

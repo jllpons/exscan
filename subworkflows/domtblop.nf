@@ -182,6 +182,7 @@ workflow DOMTBLOP_DEFAULT {
     domain_ieval          // str     : E-value threshold for domain filtering
     fasta_type            // str     : Type of fasta file (dna or protein)
     gff_intersect         // str     : path( path/to/intersect.gff )
+    keep_best_hit         // bool    : Keep only the best hit
     keep_only_intersect   // bool    : Keep only intersecting features
     min_alignment_len     // int     : Minimum length of alignment
     group                 // int     : Hit maximum grouping distance
@@ -237,11 +238,13 @@ workflow DOMTBLOP_DEFAULT {
     // DESC: Filter hits using each domain individual E-value as a threshold
     // ARGS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with sequences
     //       threshold (str)                  - E-value threshold (e.g. 1e-5, 0.001)
+    //       keep_best_hit (bool)             - Keep only the best hit for each query sequence
     // RETS: ch_qresults_serialized (channel) - Channel containing path to serialized JSON file with filtered hits
     //       ch_versions (channel)            - Channel containing path to versions.yml
     DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE(
         ch_qresults_serialized = ch_qresults_serialized,
         threshold = domain_ieval,
+        keep_best_hit = keep_best_hit,
     )
     ch_versions = ch_versions.mix(DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE.out.versions)
     ch_qresults_serialized = DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE.out.qresults_serialized
@@ -260,7 +263,7 @@ workflow DOMTBLOP_DEFAULT {
     ch_qresults_serialized = DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH.out.qresults_serialized
 
 
-    if (sequence_type == "dna") {
+    if (sequence_type == "dna" && group != null) {
         // DESC: Group hits within specified distance from each other.
         // ARGS: ch_hits_serialized (channel) - Channel containing path to serialized JSON file with hits
         //       group (int)                  - Maximum distance between hits to group

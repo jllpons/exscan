@@ -112,7 +112,7 @@ def build_dummy_hit() -> HmmscanQueryResult:
                     "name": "gffintersect",
                     "bedtools_intersect_output": "bedtools_intersect.out",
                 },
-            ]
+            ],
         ),
         query_id="myFavoriteGene_frame=2_begin=10_end=200",
         sequence_type="dna",
@@ -285,7 +285,11 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 score=".",
                 strand="+",
                 phase=".",
-                attributes={"parentID": "ExampleGene", "Name": "ExampleGene", "featureID": "GF_000001"},
+                attributes={
+                    "parentID": "ExampleGene",
+                    "Name": "ExampleGene",
+                    "featureID": "GF_000001",
+                },
             ),
             GffFeature(
                 feature_id="GF_000002",
@@ -297,7 +301,11 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 score=".",
                 strand="+",
                 phase=".",
-                attributes={"ID": "ExampleGene.exon1", "parentID": "ExampleGene", "featureID": "GF_000002"},
+                attributes={
+                    "ID": "ExampleGene.exon1",
+                    "parentID": "ExampleGene",
+                    "featureID": "GF_000002",
+                },
             ),
             GffFeature(
                 feature_id="GF_000003",
@@ -309,45 +317,43 @@ def build_dummy_hit() -> HmmscanQueryResult:
                 score=".",
                 strand="+",
                 phase=".",
-                attributes={"ID": "ExampleGene.CDS.1", "parentID": "ExampleGene", "featureID": "GF_000003"},
+                attributes={
+                    "ID": "ExampleGene.CDS.1",
+                    "parentID": "ExampleGene",
+                    "featureID": "GF_000003",
+                },
             ),
         ],
         intersections=[
-            Intersection(
-                domain_alignment_id="DA_000001",
-                feature_id="GF_000001"
-            ),
-            Intersection(
-                domain_alignment_id="DA_000001",
-                feature_id="GF_000002"
-            ),
-            Intersection(
-                domain_alignment_id="DA_000001",
-                feature_id="GF_000003"
-            ),
-            Intersection(
-                domain_alignment_id="DA_000002",
-                feature_id="GF_000001"
-            ),
-            Intersection(
-                domain_alignment_id="DA_000002",
-                feature_id="GF_000002"
-            ),
-            Intersection(
-                domain_alignment_id="DA_000003",
-                feature_id="GF_000001"
-            ),
-            Intersection(
-                domain_alignment_id="DA_000003",
-                feature_id="GF_000003"
-            ),
-                ],
+            Intersection(domain_alignment_id="DA_000001", feature_id="GF_000001"),
+            Intersection(domain_alignment_id="DA_000001", feature_id="GF_000002"),
+            Intersection(domain_alignment_id="DA_000001", feature_id="GF_000003"),
+            Intersection(domain_alignment_id="DA_000002", feature_id="GF_000001"),
+            Intersection(domain_alignment_id="DA_000002", feature_id="GF_000002"),
+            Intersection(domain_alignment_id="DA_000003", feature_id="GF_000001"),
+            Intersection(domain_alignment_id="DA_000003", feature_id="GF_000003"),
+        ],
         group=Group(
             id="10..200",
             start=10,
             end=200,
-            n_hits_on_pos_strand=3,
-            n_hits_on_neg_strand=0,
+            domain_alignments_in_group=[
+                "DA_000001",
+                "DA_000002",
+                "DA_000003",
+                "DA_000004",
+                "DA_000005",
+                "DA_000006",
+            ],
+            domain_alignments_in_pos_strand=[
+                "DA_000001",
+                "DA_000002",
+                "DA_000003",
+                "DA_000004",
+                "DA_000005",
+                "DA_000006",
+            ],
+            domain_alignments_in_neg_strand=[],
         ),
     )
 

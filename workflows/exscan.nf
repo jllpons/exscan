@@ -19,6 +19,7 @@ workflow EXSCAN {
     group_distance      // (int) - distance in bp under which two hmmscan hits are grouped
     hmmdb_dir           // (str) - path to HMM database directory
     hmmdb_file          // (str) - Name of HMM database file
+    keep_best_hit       // (bool) - keep only the best hit for each query sequence
     keep_only_intersect // (bool) - keep only hmmscan hits that intersect with features in gff_intersect
     min_alignment_len   // (int) - minimum length of alignment
     ch_versions         // (channel) - channel containing path to versions.yml
@@ -106,6 +107,7 @@ workflow EXSCAN {
         domain_ieval         = domain_ieval,
         fasta_type           = fasta_type,
         gff_intersect        = gff_intersect,
+        keep_best_hit        = keep_best_hit,
         keep_only_intersect  = keep_only_intersect,
         min_alignment_len    = min_alignment_len,
         group_distance       = group_distance,
