@@ -1,3 +1,4 @@
+import groovy.yaml.YamlBuilder
 include { EXSCAN } from './workflows/exscan'
 
 
