@@ -165,12 +165,16 @@ def completionMsg() {
 // RETS: None
 def dumpParametersToYaml() {
     def paramMap = [
-        features: params.features,
-        hits: params.hits,
-        kw_type_gene: params.kw_type_gene,
-        kw_type_exon: params.kw_type_exon,
-        kw_type_case_sensitive: params.kw_type_case_sensitive,
-        outdir: params.outdir
+        fasta: params.fasta,
+        hmmdb: params.hmmdb,
+        sequence_type: params.sequence_type,
+        dom_ieval_filter: params.dom_ieval_filter,
+        keep_best_hit: params.keep_best_hit,
+        min_alignment_len: params.min_alignment_len,
+        grouping_distance: params.grouping_distance,
+        gff_intersect: params.gff_intersect,
+        keep_only_intersect: params.keep_only_intersect,
+        outdir: params.outdir,
     ]
 
     def yaml = new YamlBuilder()
