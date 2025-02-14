@@ -2,8 +2,8 @@ process BEDTOOLS_GETFASTA {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/bedtools:2.31.1--hf5e1c6e_2@sha256:bf4b0fa21a081e5e071f273787b1e67942d331df' :
-        'quay.io/biocontainers/bedtools@sha256:38756b5ac5d0368e91e85a3ed80cc40827506ebd63d449f5418befcba899b486' }"
+        'https://depot.galaxyproject.org/singularity/bedtools:2.31.1--h13024bc_3' :
+        'quay.io/biocontainers/bedtools:2.31.1--h13024bc_3' }"
 
     publishDir "${params.outdir}/bedtools", mode: 'copy', overwrite: true, pattern: '*.fasta'
 
@@ -31,8 +31,8 @@ process BEDTOOLS_INTERSECT {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/bedtools:2.31.1--hf5e1c6e_2@sha256:bf4b0fa21a081e5e071f273787b1e67942d331df' :
-        'quay.io/biocontainers/bedtools@sha256:38756b5ac5d0368e91e85a3ed80cc40827506ebd63d449f5418befcba899b486' }"
+        'https://depot.galaxyproject.org/singularity/bedtools:2.31.1--h13024bc_3' :
+        'quay.io/biocontainers/bedtools:2.31.1--h13024bc_3' }"
 
     publishDir "${params.outdir}/bedtools", mode: 'copy', overwrite: true, pattern: '*intersect.out'
 

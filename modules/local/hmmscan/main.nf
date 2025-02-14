@@ -3,8 +3,8 @@ process HMMSCAN {
 
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/hmmer:3.4--hdbdd923_2@sha256:145286a01c4352ca95d3ff76072ec37fafd9a86e' :
-        'quay.io/biocontainers/hmmer@sha256:f482523ecef8ddb9bf2d63e896b03173a51e9698d6f4e5c8f03c8aefedcaedc6' }"
+        'https://depot.galaxyproject.org/singularity/hmmer:3.4--h503566f_3' :
+        'quay.io/biocontainers/hmmer:3.4--h503566f_3' }"
 
     publishDir "${params.outdir}/hmmscan", mode: 'copy', overwrite: true, pattern: '*.domtblout'
 

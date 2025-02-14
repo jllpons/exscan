@@ -158,9 +158,31 @@ def completionMsg() {
 }
 
 
+// DESC: Dump parameters to a YAML file
+// ARGS: None, uses variables defined at the beginning of the script
+// OUTS: YAML file with the parameters
+// RETS: None
+def dumpParametersToYaml() {
+    def paramMap = [
+        features: params.features,
+        hits: params.hits,
+        kw_type_gene: params.kw_type_gene,
+        kw_type_exon: params.kw_type_exon,
+        kw_type_case_sensitive: params.kw_type_case_sensitive,
+        outdir: params.outdir
+    ]
+
+    def yaml = new YamlBuilder()
+    yaml(paramMap)
+
+    def outputDir = new File("${params.outdir}/pipeline_info")
+    outputDir.mkdirs()
+    def outputFile = new File(outputDir, "params_used.yaml")
+    outputFile.text = yaml.toString()
+}
+
+
 // Main workflow
-
-
 workflow {
 
     main:
@@ -172,7 +194,7 @@ workflow {
     // Initialization Summary - Everything looks good so far
     log.info init_summary
 
-
+    dumpParametersToYaml()
 
 
     ch_versions = Channel.empty()

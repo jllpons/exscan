@@ -2,8 +2,8 @@ process DOMTBLOP_ADDSEQ {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*addseq.json"
 
@@ -46,8 +46,8 @@ process DOMTBLOP_FILTER {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.filter.json"
 
@@ -88,8 +88,8 @@ process DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.filterDomIEvalue.json"
 
@@ -130,8 +130,8 @@ process DOMTBLOP_FILTER_BY_MIN_ALIGNMENT_LENGTH {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*filterMinAlignmentLength.json"
 
@@ -159,8 +159,8 @@ process DOMTBLOP_FILTER_KEEP_ONLY_INTERSECT {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*filterKeepOnlyIntersect.json"
 
@@ -188,8 +188,8 @@ process DOMTBLOP_GFFINTERSECT {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*gffintersect.json"
 
@@ -218,8 +218,8 @@ process DOMTBLOP_GROUP {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*group.json"
 
@@ -248,8 +248,8 @@ process DOMTBLOP_PARSER {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*qresults_serialized.json"
 
@@ -278,8 +278,8 @@ process DOMTBLOP_TOBED {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*bed"
 
@@ -307,8 +307,8 @@ process DOMTBLOP_TOCSV {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.csv"
 
@@ -347,8 +347,8 @@ process DOMTBLOP_TOFASTA {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*.fasta"
 
@@ -378,8 +378,8 @@ process DOMTBLOP_TOGFF {
     label 'process_single'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/biopython:1.79@sha256:dc432d0b398037b797d6981ec338522e5417bbf4' :
-        'quay.io/biocontainers/biopython@sha256:937556be7fd782859ece3138e0b8beae3f4645ae8c8fcf304bd56d06084ae37b' }"
+        'https://depot.galaxyproject.org/singularity/biopython:1.79' :
+        'quay.io/biocontainers/biopython:1.79' }"
 
     publishDir "${params.outdir}/domtblop", mode: 'copy', overwrite: true, pattern: "*gff"
 

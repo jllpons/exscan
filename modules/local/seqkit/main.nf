@@ -2,8 +2,8 @@ process SEQKIT_TRANSLATE {
     label "process_multi"
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0@sha256:4a8ac48e949803a6a118fe18614d1a93ffe64ba4' :
-        'quay.io/biocontainers/seqkit@sha256:548b9b2686a311feab2d6811d113f71211280ae42b9945d51060a9049b21600e' }"
+        'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0' :
+        'quay.io/biocontainers/seqkit:2.9.0--h9ee0642_0' }"
 
     publishDir "${params.outdir}/seqkit", mode: 'copy', overwrite: true, pattern: '*translated.fasta'
 
@@ -43,8 +43,8 @@ process SEQKIT_SPLIT {
     label "process_multi"
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0@sha256:4a8ac48e949803a6a118fe18614d1a93ffe64ba4' :
-        'quay.io/biocontainers/seqkit@sha256:548b9b2686a311feab2d6811d113f71211280ae42b9945d51060a9049b21600e' }"
+        'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0' :
+        'quay.io/biocontainers/seqkit:2.9.0--h9ee0642_0' }"
 
     publishDir "${params.outdir}/seqkit", mode: 'copy', overwrite: true, pattern: 'seqkit_split/*fasta'
 
@@ -72,8 +72,8 @@ process SEQKIT_GREP {
     label "process_single"
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0@sha256:4a8ac48e949803a6a118fe18614d1a93ffe64ba4' :
-        'quay.io/biocontainers/seqkit@sha256:548b9b2686a311feab2d6811d113f71211280ae42b9945d51060a9049b21600e' }"
+        'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0' :
+        'quay.io/biocontainers/seqkit:2.9.0--h9ee0642_0' }"
 
 
     input:

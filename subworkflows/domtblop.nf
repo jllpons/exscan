@@ -264,6 +264,7 @@ workflow DOMTBLOP_DEFAULT {
 
 
     if (sequence_type == "dna" && group != null) {
+        log.error("Grouping must be fixed before using it!")
         // DESC: Group hits within specified distance from each other.
         // ARGS: ch_hits_serialized (channel) - Channel containing path to serialized JSON file with hits
         //       group (int)                  - Maximum distance between hits to group
