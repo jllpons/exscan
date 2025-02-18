@@ -44,7 +44,10 @@ from domtblop_utils import (
 )
 
 
-def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]:
+def gff3_from_query_result(
+    query_result: HmmscanQueryResult,
+    logger: logging.Logger,
+    ) -> List[GffFeature]:
     """
     Convert a HmmscanQueryResult object to a list of Gff3Feature objects.
     Remember that each query result:
@@ -94,9 +97,10 @@ def gff3_from_query_result(query_result: HmmscanQueryResult) -> List[GffFeature]
                 }
 
                 if any([start < 0, end < 0]):
-                    raise ValueError(
-                        f"No value was found for start or end in alignment fragment: {domain_alignment_fragment}"
+                    logger.warning(
+                        f"Start or end was not found in alignment fragment: {domain_alignment_fragment}"
                     )
+                    continue
 
                 features.append(
                     GffFeature(
@@ -251,7 +255,7 @@ def run(args: List[str]) -> None:
                 features = gff3_from_query_result_intersecting(query_result)
 
             else:
-                features = gff3_from_query_result(query_result)
+                features = gff3_from_query_result(query_result, logger)
 
         except ValueError as e:
             logger.error(f"Error processing query result: {e}")
