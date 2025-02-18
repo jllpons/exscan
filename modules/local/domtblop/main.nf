@@ -107,7 +107,7 @@ process DOMTBLOP_FILTER_BY_DOMAIN_IEVALUE {
     if (keep_best_hit)
         """
         domtblop.py filter --best-hit --dom-ievalue ${threshold} ${qresults_serialized} \
-            | domtblop.py filter --best-hit --seq-ievalue "1.0" > ${qresults_serialized.baseName}.filterDomIEvalue.json
+            | domtblop.py filter --best-hit --seq-evalue "1.0" > ${qresults_serialized.baseName}.filterDomIEvalue.json
         cat <<-END_VERSIONS > versions.yml
         ${task.process}:
             Python: \$(python -V | awk '{print \$2}')
